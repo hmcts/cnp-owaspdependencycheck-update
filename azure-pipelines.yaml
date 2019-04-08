@@ -1,5 +1,6 @@
 name: Update OWASP dependency checks
-
+pool:
+  vmImage: 'Ubuntu 16.04'
 variables:
   serviceConnection: azurerm-prod
   keyvaultName: infra-vault
