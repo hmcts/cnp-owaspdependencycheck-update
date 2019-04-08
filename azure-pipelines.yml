@@ -3,7 +3,7 @@ pool:
   vmImage: 'Ubuntu 16.04'
 variables:
   serviceConnection: azurerm-prod
-  keyvaultName: infra-vault
+  keyvaultName: infra-vault-prod
 steps:
   - task: AzureKeyVault@1
     displayName: 'Get secrets from Keyvault'
