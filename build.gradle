@@ -1,0 +1,10 @@
+plugins {
+    id 'org.owasp.dependencycheck' version '4.0.2'
+}
+
+group = 'uk.gov.hmcts'
+
+
+repositories {
+    mavenCentral()
+}
