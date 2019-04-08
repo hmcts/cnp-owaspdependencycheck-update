@@ -8,8 +8,8 @@ steps:
   - task: AzureKeyVault@1
     displayName: 'Get secrets from Keyvault'
     inputs:
-      azureSubscription: ${{ parameters.serviceConnection }}
-      keyVaultName: ${{ parameters.keyvaultName }}
+      azureSubscription: ${{ variables.serviceConnection }}
+      keyVaultName: ${{ variables.keyvaultName }}
       secretsFilter: 'OWASPDb-Password,OWASPDb-Account'
 
   - task: Gradle@2
