@@ -15,5 +15,5 @@ steps:
   - task: Gradle@2
     inputs:
       gradleWrapperFile: 'gradlew'
-      options: "-DfailBuild='true' -Dcve.check.validforhours=24 -Danalyzer.central.enabled='false' -Ddata.driver_name=com.microsoft.sqlserver.jdbc.SQLServerDriver -Ddata.connection_string=jdbc:sqlserver://owaspdependencycheck.database.windows.net:1433;database=owaspdependencycheck;encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30; -Ddata.username=$(OWASPDb-Account) -Ddata.password=$(OWASPDb-Password) --d -I init.gradle"
+      options: "-DfailBuild='true' -Dcve.check.validforhours=24 -Danalyzer.central.enabled='false' -Ddata.driver_name=com.microsoft.sqlserver.jdbc.SQLServerDriver -Ddata.connection_string=jdbc:sqlserver://owaspdependencycheck.database.windows.net:1433;database=owaspdependencycheck;encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30; -Ddata.user=$(OWASPDb-Account) -Ddata.password=$(OWASPDb-Password) --d -I init.gradle"
       tasks: 'dependencyCheckUpdate'
