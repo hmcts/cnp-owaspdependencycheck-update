@@ -1,0 +1,9 @@
+initscript {
+    repositories {
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath  group: 'com.microsoft.sqlserver', name: 'mssql-jdbc', version: '7.2.1.jre8'
+    }
+}
