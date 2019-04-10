@@ -1,7 +1,7 @@
 name: Update OWASP dependency checks
 pool:
   vmImage: 'Ubuntu 16.04'
-  timeoutInMinutes: 720
+  timeoutInMinutes: 0
 variables:
   serviceConnection: azurerm-prod
   keyvaultName: infra-vault-prod
@@ -14,7 +14,7 @@ steps:
       secretsFilter: 'OWASPDb-Password,OWASPDb-Account'
 
   - task: Gradle@2
-    timeoutInMinutes: 720
+    timeoutInMinutes: 0
     inputs:
       gradleWrapperFile: 'gradlew'
       options: "-DfailBuild='true' -Dcve.check.validforhours=24 -Danalyzer.central.enabled='false' -Ddata.driver_name=com.microsoft.sqlserver.jdbc.SQLServerDriver -Ddata.connection_string=jdbc:sqlserver://owaspdependencycheck.database.windows.net:1433;database=owaspdependencycheck;encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30; -Ddata.user=$(OWASPDb-Account) -Ddata.password=$(OWASPDb-Password) "
