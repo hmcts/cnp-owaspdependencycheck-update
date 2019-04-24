@@ -1,7 +1,7 @@
 name: Update OWASP dependency checks
 trigger: none
 pool:
-  vmImage: 'Ubuntu 16.04'
+  name: 'hmcts-agent-pool'
 variables:
   serviceConnection: azurerm-prod
   keyvaultName: infra-vault-prod
