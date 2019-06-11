@@ -1,0 +1,19 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath  group: 'org.postgresql', name: 'postgresql', version: '42.2.5'
+    }
+}
+plugins {
+    id 'org.owasp.dependencycheck' version '5.0.0'
+}
+
+group = 'uk.gov.hmcts'
+
+
+repositories {
+    mavenCentral()
+}

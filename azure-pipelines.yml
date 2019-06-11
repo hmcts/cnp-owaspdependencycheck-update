@@ -5,18 +5,37 @@ pool:
 variables:
   serviceConnection: azurerm-prod
   keyvaultName: infra-vault-prod
-steps:
-  - task: AzureKeyVault@1
-    displayName: 'Get secrets from Keyvault'
-    inputs:
-      azureSubscription: ${{ variables.serviceConnection }}
-      keyVaultName: ${{ variables.keyvaultName }}
-      secretsFilter: 'OWASPPostgresDb-Password,OWASPPostgresDb-Account'
+jobs:
+  - job: owasp-update-v4
+    steps:
+      - task: AzureKeyVault@1
+        displayName: 'Get secrets from Keyvault'
+        inputs:
+          azureSubscription: ${{ variables.serviceConnection }}
+          keyVaultName: ${{ variables.keyvaultName }}
+          secretsFilter: 'OWASPPostgresDb-Password,OWASPPostgresDb-Account'
 
-  - task: Gradle@2
-    displayName: 'Updating OWASP DB'
-    inputs:
-      gradleWrapperFile: 'gradlew'
-      options: "-DfailBuild='true' -Dcve.check.validforhours=24 -Danalyzer.central.enabled='false' -Ddata.driver_name=org.postgresql.Driver -Ddata.connection_string=jdbc:postgresql://owaspdependency-prod.postgres.database.azure.com/owaspdependencycheck -Ddata.user=$(OWASPPostgresDb-Account) -Ddata.password=$(OWASPPostgresDb-Password) -Ddatabase.batchinsert.enabled='true'"
-      tasks: 'dependencyCheckUpdate'
-      gradleOptions: -Xmx2g -XX:+HeapDumpOnOutOfMemoryError
+      - task: Gradle@2
+        displayName: 'Updating OWASP DB'
+        inputs:
+          gradleWrapperFile: 'gradlew'
+          options: "-DfailBuild='true' -Dcve.check.validforhours=24 -Danalyzer.central.enabled='false' -Ddata.driver_name=org.postgresql.Driver -Ddata.connection_string=jdbc:postgresql://owaspdependency-prod.postgres.database.azure.com/owaspdependencycheck -Ddata.user=$(OWASPPostgresDb-Account) -Ddata.password=$(OWASPPostgresDb-Password) -Ddatabase.batchinsert.enabled='true'"
+          tasks: 'dependencyCheckUpdate'
+          gradleOptions: -Xmx2g -XX:+HeapDumpOnOutOfMemoryError
+
+  - job: owasp-update-v5
+    steps:
+      - task: AzureKeyVault@1
+        displayName: 'Get secrets from Keyvault'
+        inputs:
+          azureSubscription: ${{ variables.serviceConnection }}
+          keyVaultName: ${{ variables.keyvaultName }}
+          secretsFilter: 'OWASPPostgresDb-v5-Password,OWASPPostgresDb-v5-Account'
+
+      - task: Gradle@2
+        displayName: 'Updating OWASP DB'
+        inputs:
+          gradleWrapperFile: 'gradlew --build-file build-v5.gradle'
+          options: "-DfailBuild='true' -Dcve.check.validforhours=24 -Danalyzer.central.enabled='false' -Ddata.driver_name=org.postgresql.Driver -Ddata.connection_string=jdbc:postgresql://owaspdependency-v5-prod.postgres.database.azure.com/owaspdependencycheck -Ddata.user=$(OWASPPostgresDb-v5-Account) -Ddata.password=$(OWASPPostgresDb-v5-Password) -Ddatabase.batchinsert.enabled='true'"
+          tasks: 'dependencyCheckUpdate'
+          gradleOptions: -Xmx2g -XX:+HeapDumpOnOutOfMemoryError
