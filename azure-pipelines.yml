@@ -38,6 +38,14 @@ jobs:
           secretsFilter: 'OWASPPostgresDb-v5-Password,OWASPPostgresDb-v5-Account'
 
       - task: Gradle@2
+        displayName: 'Running OWASP DB migrations'
+        inputs:
+          gradleWrapperFile: 'gradlew'
+          options: "--info --stacktrace --build-file build-v5.gradle -DfailBuild='true' -Dflyway.url=jdbc:postgresql://owaspdependency-v5-prod.postgres.database.azure.com/owaspdependencycheck -Dflyway.user=$(OWASPPostgresDb-v5-Account) -Dflyway.password=$(OWASPPostgresDb-v5-Password) -Dflyway.locations=filesystem:/cnp-owaspdependencycheck-update/db-migrations/v5"
+          tasks: 'flywayMigrate'
+          gradleOptions: -Xmx2g -XX:+HeapDumpOnOutOfMemoryError
+
+      - task: Gradle@3
         displayName: 'Updating OWASP DB'
         inputs:
           gradleWrapperFile: 'gradlew'

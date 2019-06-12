@@ -8,6 +8,7 @@ buildscript {
     }
 }
 plugins {
+    id "org.flywaydb.flyway" version "5.2.4"
     id 'org.owasp.dependencycheck' version '5.0.0'
 }
 
