@@ -1,7 +1,6 @@
 jobs:
   - job: owasp-update-v4
     displayName: Update OWASP version 4 dependency checks
-    trigger: none
     pool:
       name: 'hmcts-agent-pool'
     variables:
@@ -25,7 +24,6 @@ jobs:
 
   - job: owasp-update-v5
     displayName: Update OWASP version 5 dependency checks
-    trigger: none
     pool:
       name: 'hmcts-agent-pool'
     variables:
