@@ -1,12 +1,12 @@
-name: Update OWASP dependency checks
-trigger: none
-pool:
-  name: 'hmcts-agent-pool'
-variables:
-  serviceConnection: azurerm-prod
-  keyvaultName: infra-vault-prod
 jobs:
   - job: owasp-update-v4
+    displayName: Update OWASP version 4 dependency checks
+    trigger: none
+    pool:
+      name: 'hmcts-agent-pool'
+    variables:
+      serviceConnection: azurerm-prod
+      keyvaultName: infra-vault-prod
     steps:
       - task: AzureKeyVault@1
         displayName: 'Get secrets from Keyvault'
@@ -24,6 +24,13 @@ jobs:
           gradleOptions: -Xmx2g -XX:+HeapDumpOnOutOfMemoryError
 
   - job: owasp-update-v5
+    displayName: Update OWASP version 5 dependency checks
+    trigger: none
+    pool:
+      name: 'hmcts-agent-pool'
+    variables:
+      serviceConnection: azurerm-prod
+      keyvaultName: infra-vault-prod
     steps:
       - task: AzureKeyVault@1
         displayName: 'Get secrets from Keyvault'
