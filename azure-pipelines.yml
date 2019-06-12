@@ -45,7 +45,7 @@ jobs:
           tasks: 'flywayMigrate'
           gradleOptions: -Xmx2g -XX:+HeapDumpOnOutOfMemoryError
 
-      - task: Gradle@3
+      - task: Gradle@2
         displayName: 'Updating OWASP DB'
         inputs:
           gradleWrapperFile: 'gradlew'
