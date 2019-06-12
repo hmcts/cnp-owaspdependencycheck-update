@@ -1,5 +1,5 @@
 jobs:
-  - job: owasp-update-v4
+  - job: owasp_update_v4
     displayName: Update OWASP version 4 dependency checks
     pool:
       name: 'hmcts-agent-pool'
@@ -22,7 +22,7 @@ jobs:
           tasks: 'dependencyCheckUpdate'
           gradleOptions: -Xmx2g -XX:+HeapDumpOnOutOfMemoryError
 
-  - job: owasp-update-v5
+  - job: owasp_update_v5
     displayName: Update OWASP version 5 dependency checks
     pool:
       name: 'hmcts-agent-pool'
