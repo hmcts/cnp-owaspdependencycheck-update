@@ -1,34 +1,11 @@
 schedules:
-- cron: "0 0 */3 * *"
+- cron: '0 0 */3 * *'
   displayName: Run every 3 hours
   branches:
     include:
     - master
-  always: "true"
+  always: 'true'
 jobs:
-  - job: owasp_update_v4
-    displayName: Update OWASP version 4 dependency checks
-    pool:
-      name: 'hmcts-agent-pool'
-    variables:
-      serviceConnection: azurerm-prod
-      keyvaultName: infra-vault-prod
-    steps:
-      - task: AzureKeyVault@1
-        displayName: 'Get secrets from Keyvault'
-        inputs:
-          azureSubscription: ${{ variables.serviceConnection }}
-          keyVaultName: ${{ variables.keyvaultName }}
-          secretsFilter: 'OWASPPostgresDb-Password,OWASPPostgresDb-Account'
-
-      - task: Gradle@2
-        displayName: 'Updating OWASP DB'
-        inputs:
-          gradleWrapperFile: 'gradlew'
-          options: "-DfailBuild='true' -Dcve.check.validforhours=24 -Danalyzer.central.enabled='false' -Ddata.driver_name=org.postgresql.Driver -Ddata.connection_string=jdbc:postgresql://owaspdependency-prod.postgres.database.azure.com/owaspdependencycheck -Ddata.user=$(OWASPPostgresDb-Account) -Ddata.password=$(OWASPPostgresDb-Password) -Ddatabase.batchinsert.enabled='true'"
-          tasks: 'dependencyCheckUpdate'
-          gradleOptions: -Xmx2g -XX:+HeapDumpOnOutOfMemoryError
-
   - job: owasp_update_v5
     displayName: Update OWASP version 5 dependency checks
     pool:
