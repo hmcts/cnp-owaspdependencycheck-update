@@ -7,7 +7,7 @@ schedules:
   always: 'true'
 jobs:
   - job: owasp_update_v5
-    displayName: Update OWASP version 5 dependency checks
+    displayName: Update OWASP version 5 dependency check DB
     pool:
       name: 'hmcts-agent-pool'
     variables:
