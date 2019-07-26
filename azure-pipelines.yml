@@ -1,5 +1,5 @@
 schedules:
-- cron: '0 0 */3 * *'
+- cron: '0 */3 * * *'
   displayName: Run update every 3 hours
   branches:
     include:
