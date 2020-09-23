@@ -39,20 +39,20 @@ jobs:
           gradleOptions: -Xmx2g -XX:+HeapDumpOnOutOfMemoryError
   
   - job: owasp_update_v6
-      displayName: Update OWASP version 6 dependency check DB
-      pool:
-        name: 'hmcts-agent-pool'
-      variables:
-        serviceConnection: azurerm-prod
-        keyvaultName: infra-vault-prod
-      timeoutInMinutes: 600
-      steps:
-        - task: AzureKeyVault@1
-          displayName: 'Get secrets from Keyvault'
-          inputs:
-            azureSubscription: ${{ variables.serviceConnection }}
-            keyVaultName: ${{ variables.keyvaultName }}
-            secretsFilter: 'OWASPPostgresDb-v6-Password,OWASPPostgresDb-v6-Account'
+    displayName: Update OWASP version 6 dependency check DB
+    pool:
+      name: 'hmcts-agent-pool'
+    variables:
+      serviceConnection: azurerm-prod
+      keyvaultName: infra-vault-prod
+    timeoutInMinutes: 600
+    steps:
+      - task: AzureKeyVault@1
+        displayName: 'Get secrets from Keyvault'
+        inputs:
+          azureSubscription: ${{ variables.serviceConnection }}
+          keyVaultName: ${{ variables.keyvaultName }}
+          secretsFilter: 'OWASPPostgresDb-v6-Password,OWASPPostgresDb-v6-Account'
 
       - task: Gradle@2
         displayName: 'Running OWASP DB migrations'
