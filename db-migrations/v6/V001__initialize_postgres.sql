@@ -1,6 +1,6 @@
 --CREATE DATABASE dependencycheck;
 --\c dependencycheck;
---CREATE USER dcuser WITH PASSWORD 'DC-Pass1337!';
+CREATE USER dcuser WITH PASSWORD 'DC-Pass1337!';
 
 DROP FUNCTION IF EXISTS public.save_property;
 DROP FUNCTION IF EXISTS public.update_vulnerability;
