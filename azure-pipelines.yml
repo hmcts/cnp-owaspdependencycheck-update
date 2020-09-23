@@ -20,7 +20,7 @@ jobs:
         inputs:
           azureSubscription: ${{ variables.serviceConnection }}
           keyVaultName: ${{ variables.keyvaultName }}
-          secretsFilter: 'OWASPPostgresDb-v5-Password,OWASPPostgresDb-v5-Account'
+          secretsFilter: 'OWASPPostgresDb-v5-Password,OWASPPostgresDb-v5-Account,OWASPPostgresDb-v6-Password,OWASPPostgresDb-v6-Account'
 
       - task: Gradle@2
         displayName: 'Running OWASP DB migrations'
@@ -35,5 +35,20 @@ jobs:
         inputs:
           gradleWrapperFile: 'gradlew'
           options: "--build-file build-v5.gradle -DfailBuild='true' -Dcve.check.validforhours=24 -Danalyzer.central.enabled='false' -Ddata.driver_name=org.postgresql.Driver -Ddata.connection_string=jdbc:postgresql://owaspdependency-v5-prod.postgres.database.azure.com/owaspdependencycheck -Ddata.user=$(OWASPPostgresDb-v5-Account) -Ddata.password=$(OWASPPostgresDb-v5-Password) -Ddatabase.batchinsert.enabled='true'"
+          tasks: 'dependencyCheckUpdate'
+          gradleOptions: -Xmx2g -XX:+HeapDumpOnOutOfMemoryError
+      - task: Gradle@2
+        displayName: 'Running OWASP DB migrations'
+        inputs:
+          gradleWrapperFile: 'gradlew'
+          options: "--build-file build-v6.gradle -DfailBuild='true' -Dflyway.url=jdbc:postgresql://owaspdependency-v6-prod.postgres.database.azure.com/owaspdependencycheck -Dflyway.user=$(OWASPPostgresDb-v6-Account) -Dflyway.password=$(OWASPPostgresDb-v6-Password) -Dflyway.locations=filesystem:db-migrations/v6"
+          tasks: 'flywayMigrate'
+          gradleOptions: -Xmx2g -XX:+HeapDumpOnOutOfMemoryError
+
+      - task: Gradle@2
+        displayName: 'Updating OWASP DB'
+        inputs:
+          gradleWrapperFile: 'gradlew'
+          options: "--build-file build-v6.gradle -DfailBuild='true' -Dcve.check.validforhours=24 -Danalyzer.central.enabled='false' -Ddata.driver_name=org.postgresql.Driver -Ddata.connection_string=jdbc:postgresql://owaspdependency-v6-prod.postgres.database.azure.com/owaspdependencycheck -Ddata.user=$(OWASPPostgresDb-v6-Account) -Ddata.password=$(OWASPPostgresDb-v6-Password) -Ddatabase.batchinsert.enabled='true'"
           tasks: 'dependencyCheckUpdate'
           gradleOptions: -Xmx2g -XX:+HeapDumpOnOutOfMemoryError
