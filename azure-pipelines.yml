@@ -12,7 +12,7 @@ jobs:
       name: 'hmcts-agent-pool'
     variables:
       serviceConnection: azurerm-prod
-      keyvaultName: infra-vault-prod
+      keyvaultName: cftptl-intsvc
     timeoutInMinutes: 600
     steps:
       - task: AzureKeyVault@1
