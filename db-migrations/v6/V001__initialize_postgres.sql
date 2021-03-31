@@ -1,6 +1,6 @@
 --CREATE DATABASE dependencycheck;
 --\c dependencycheck;
---CREATE USER dcuser WITH PASSWORD 'DC-Pass1337!';
+CREATE USER dcuser WITH PASSWORD 'DC-Pass1337!';
 
 DROP FUNCTION IF EXISTS public.save_property;
 DROP FUNCTION IF EXISTS public.update_vulnerability;
@@ -40,8 +40,6 @@ CREATE TABLE software (cveid INT, cpeEntryId INT, versionEndExcluding VARCHAR(50
 
 CREATE TABLE cpeEcosystemCache (vendor VARCHAR(255), product VARCHAR(255), ecosystem VARCHAR(255), PRIMARY KEY (vendor, product));
 INSERT INTO cpeEcosystemCache (vendor, product, ecosystem) VALUES ('apache', 'zookeeper', 'MULTIPLE');
-INSERT INTO cpeEcosystemCache (vendor, product, ecosystem) VALUES ('tensorflow', 'tensorflow', 'MULTIPLE');
-INSERT INTO cpeEcosystemCache (vendor, product, ecosystem) VALUES ('scikit-learn', 'scikit-learn', 'MULTIPLE');
 
 CREATE TABLE cweEntry (cveid INT, cwe VARCHAR(20),
     CONSTRAINT fkCweEntry FOREIGN KEY (cveid) REFERENCES vulnerability(id) ON DELETE CASCADE);
@@ -88,7 +86,7 @@ END IF;
 END
 $$ LANGUAGE plpgsql;
 
-GRANT EXECUTE ON FUNCTION public.merge_ecosystem(VARCHAR(255), VARCHAR(255), varchar(255)) TO dcuser;
+GRANT EXECUTE ON FUNCTION public.save_property(varchar(50),varchar(500)) TO dcuser;
 
 CREATE FUNCTION update_vulnerability (
     IN p_cveId VARCHAR(20), IN p_description VARCHAR(8000), IN p_v2Severity VARCHAR(20), 
@@ -209,4 +207,4 @@ GRANT EXECUTE ON FUNCTION public.insert_software (INT, CHAR(1), VARCHAR(255),
 
 
 
-INSERT INTO properties(id,value) VALUES ('version','5.1');
+INSERT INTO properties(id,value) VALUES ('version','5.0');
