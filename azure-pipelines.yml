@@ -1,4 +1,5 @@
-pr: none 
+trigger: none
+pr: none
 schedules:
 - cron: '0 */3 * * *'
   displayName: Run update every 3 hours  
