@@ -8,7 +8,7 @@ schedules:
   always: 'true'
 jobs:
   - job: owasp_update_v6
-    displayName: Update OWASP version 6 dependency check DB
+    displayName: Update OWASP version 6 dependency check DB 
     pool:
       name: 'hmcts-cftptl-agent-pool'
     variables:
