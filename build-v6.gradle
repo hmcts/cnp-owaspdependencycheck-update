@@ -8,8 +8,8 @@ buildscript {
     }
 }
 plugins {
-    id "org.flywaydb.flyway" version "6.5.7"
-    id 'org.owasp.dependencycheck' version '6.5.3'
+    id "org.flywaydb.flyway" version "8.5.13"
+    id 'org.owasp.dependencycheck' version '7.1.1'
 }
 
 group = 'uk.gov.hmcts'
