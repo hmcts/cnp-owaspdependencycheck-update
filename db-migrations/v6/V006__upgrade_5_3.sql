@@ -9,4 +9,4 @@ CREATE TABLE knownExploited (cveID varchar(20) PRIMARY KEY,
     notes VARCHAR(2000));
 
 
-UPDATE Properties SET 'value'='5.4' WHERE ID='version';
+UPDATE Properties SET value='5.4' WHERE ID='version';
