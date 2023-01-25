@@ -8,6 +8,5 @@ CREATE TABLE knownExploited (cveID varchar(20) PRIMARY KEY,
     dueDate CHAR(10),
     notes VARCHAR(2000));
 
-#CREATE ALIAS merge_knownexploited FOR "org.owasp.dependencycheck.data.nvdcve.H2Functions.mergeKnownExploited";
 
 UPDATE Properties SET 'value'='5.4' WHERE ID='version';
