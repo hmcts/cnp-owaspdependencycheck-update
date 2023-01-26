@@ -9,7 +9,7 @@ buildscript {
 }
 plugins {
     id "org.flywaydb.flyway" version "8.5.13"
-    id 'org.owasp.dependencycheck' version '7.1.1'
+    id 'org.owasp.dependencycheck' version '8.0.1'
 }
 
 group = 'uk.gov.hmcts'
