@@ -71,3 +71,35 @@ jobs:
           options: "--build-file build-v6.gradle -DfailBuild='true' -Dcve.check.validforhours=24 -Ddata.driver_name=org.postgresql.Driver -Ddata.connection_string=jdbc:postgresql://owaspdependency-v14-flexible-prod.postgres.database.azure.com/owaspdependencycheck -Ddata.user=$(OWASPPostgresDb-v14-Account) -Ddata.password=$(OWASPPostgresDb-v14-Password) -Ddatabase.batchinsert.enabled='true'"
           tasks: 'dependencyCheckUpdate'
           gradleOptions: -Xmx2g -XX:+HeapDumpOnOutOfMemoryError
+
+  - job: owasp_update_flexible_sbox
+    displayName: Update OWASP dependency check DB on Postgres Flexible Server
+    pool:
+      name: 'hmcts-sandbox-agent-pool'
+    variables:
+      serviceConnection: azurerm-sandbox
+      keyvaultName: cftsbox-intsvc
+    timeoutInMinutes: 600
+    steps:
+      - task: AzureKeyVault@1
+        displayName: 'Get secrets from Keyvault'
+        inputs:
+          azureSubscription: ${{ variables.serviceConnection }}
+          keyVaultName: ${{ variables.keyvaultName }}
+          secretsFilter: 'OWASPPostgresDb-v14-Password,OWASPPostgresDb-v14-Account'
+
+      - task: Gradle@2
+        displayName: 'Running OWASP DB migrations'
+        inputs:
+          gradleWrapperFile: 'gradlew'
+          options: "--build-file build-v6.gradle -DfailBuild='true' -Dflyway.url=jdbc:postgresql://owaspdependency-v14-flexible-sandbox.postgres.database.azure.com/owaspdependencycheck -Dflyway.user=$(OWASPPostgresDb-v14-Account) -Dflyway.password=$(OWASPPostgresDb-v14-Password) -Dflyway.locations=filesystem:db-migrations/v6"
+          tasks: 'flywayMigrate'
+          gradleOptions: -Xmx2g -XX:+HeapDumpOnOutOfMemoryError
+
+      - task: Gradle@2
+        displayName: 'Updating OWASP DB'
+        inputs:
+          gradleWrapperFile: 'gradlew'
+          options: "--build-file build-v6.gradle -DfailBuild='true' -Dcve.check.validforhours=24 -Ddata.driver_name=org.postgresql.Driver -Ddata.connection_string=jdbc:postgresql://owaspdependency-v14-flexible-sandbox.postgres.database.azure.com/owaspdependencycheck -Ddata.user=$(OWASPPostgresDb-v14-Account) -Ddata.password=$(OWASPPostgresDb-v14-Password) -Ddatabase.batchinsert.enabled='true'"
+          tasks: 'dependencyCheckUpdate'
+          gradleOptions: -Xmx2g -XX:+HeapDumpOnOutOfMemoryError
