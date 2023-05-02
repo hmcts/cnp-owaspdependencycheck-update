@@ -92,7 +92,7 @@ jobs:
         displayName: 'Running OWASP DB migrations'
         inputs:
           gradleWrapperFile: 'gradlew'
-          options: "--build-file build-v6.gradle -DfailBuild='true' -Dflyway.url=jdbc:postgresql://owaspdependency-v14-flexible-sandbox-ek.postgres.database.azure.com/owaspdependencycheck -Dflyway.user=$(OWASPPostgresDb-v14-Account) -Dflyway.password=$(OWASPPostgresDb-v14-Password) -Dflyway.locations=filesystem:db-migrations/v6"
+          options: "--build-file build-v6.gradle -DfailBuild='true' -Dflyway.url=jdbc:postgresql://owaspdependency-v14-flexible-sandbox.postgres.database.azure.com/owaspdependencycheck -Dflyway.user=$(OWASPPostgresDb-v14-Account) -Dflyway.password=$(OWASPPostgresDb-v14-Password) -Dflyway.locations=filesystem:db-migrations/v6"
           tasks: 'flywayMigrate'
           gradleOptions: -Xmx2g -XX:+HeapDumpOnOutOfMemoryError
 
@@ -100,6 +100,6 @@ jobs:
         displayName: 'Updating OWASP DB'
         inputs:
           gradleWrapperFile: 'gradlew'
-          options: "--build-file build-v6.gradle -DfailBuild='true' -Dcve.check.validforhours=24 -Ddata.driver_name=org.postgresql.Driver -Ddata.connection_string=jdbc:postgresql://owaspdependency-v14-flexible-sandbox-ek.postgres.database.azure.com/owaspdependencycheck -Ddata.user=$(OWASPPostgresDb-v14-Account) -Ddata.password=$(OWASPPostgresDb-v14-Password) -Ddatabase.batchinsert.enabled='true'"
+          options: "--build-file build-v6.gradle -DfailBuild='true' -Dcve.check.validforhours=24 -Ddata.driver_name=org.postgresql.Driver -Ddata.connection_string=jdbc:postgresql://owaspdependency-v14-flexible-sandbox.postgres.database.azure.com/owaspdependencycheck -Ddata.user=$(OWASPPostgresDb-v14-Account) -Ddata.password=$(OWASPPostgresDb-v14-Password) -Ddatabase.batchinsert.enabled='true'"
           tasks: 'dependencyCheckUpdate'
           gradleOptions: -Xmx2g -XX:+HeapDumpOnOutOfMemoryError
