@@ -41,7 +41,7 @@ jobs:
           gradleOptions: -Xmx2g -XX:+HeapDumpOnOutOfMemoryError
 
   - job: owasp_update_flexible
-    displayName: Update OWASP dependency check DB on Postgres Flexible Server
+    displayName: Update OWASP dependency check DB on Postgres Flexible Server - Production
     pool:
       name: 'hmcts-cftptl-agent-pool'
     variables:
@@ -73,7 +73,7 @@ jobs:
           gradleOptions: -Xmx2g -XX:+HeapDumpOnOutOfMemoryError
 
   - job: owasp_update_flexible_sbox
-    displayName: Update OWASP dependency check DB on Postgres Flexible Server
+    displayName: Update OWASP dependency check DB on Postgres Flexible Server - Sandbox
     pool:
       name: 'hmcts-sandbox-agent-pool'
     variables:
