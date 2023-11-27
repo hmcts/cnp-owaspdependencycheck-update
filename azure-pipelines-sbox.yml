@@ -39,6 +39,11 @@ jobs:
           options: "--build-file build-v6.gradle -DfailBuild='true' -Dcve.check.validforhours=24 -Ddata.driver_name=org.postgresql.Driver -Ddata.connection_string=jdbc:postgresql://owaspdependency-v14-flexible-sandbox.postgres.database.azure.com/owaspdependencycheck -Ddata.user=$(OWASPPostgresDb-v14-Account) -Ddata.password=$(OWASPPostgresDb-v14-Password) -Ddatabase.batchinsert.enabled='true'"
           tasks: 'dependencyCheckUpdate'
           gradleOptions: -Xmx2g -XX:+HeapDumpOnOutOfMemoryError
+          
+      - task: Bash@3
+        inputs:
+          targetType: 'inline'
+          script: echo $(OWASP-NVD-API-KEY-Password)
 
       - task: Gradle@2
         displayName: 'Running OWASP V15 DB migrations'
