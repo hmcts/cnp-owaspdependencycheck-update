@@ -52,6 +52,6 @@ jobs:
         displayName: 'Updating OWASP V15 DB'
         inputs:
           gradleWrapperFile: 'gradlew'
-          options: "--build-file build-v9.gradle -DfailBuild='true' -Dcve.check.validforhours=24 -Pnvd.api_key=$(dependency-check-api-key) -Ddata.driver_name=org.postgresql.Driver -Ddata.connection_string=jdbc:postgresql://owaspdependency-sandbox.postgres.database.azure.com/owaspdependencycheck -Ddata.user=$(OWASPPostgresDb-v15-Account) -Ddata.password=$(OWASPPostgresDb-v15-Password) -Ddatabase.batchinsert.enabled='true'"
+          options: "--build-file build-v9.gradle -DfailBuild='true' -Dcve.check.validforhours=24 -Dnvd.api_key=$(dependency-check-api-key) -Ddata.driver_name=org.postgresql.Driver -Ddata.connection_string=jdbc:postgresql://owaspdependency-sandbox.postgres.database.azure.com/owaspdependencycheck -Ddata.user=$(OWASPPostgresDb-v15-Account) -Ddata.password=$(OWASPPostgresDb-v15-Password) -Ddatabase.batchinsert.enabled='true'"
           tasks: 'dependencyCheckUpdate'
           gradleOptions: -Xmx2g -XX:+HeapDumpOnOutOfMemoryError
