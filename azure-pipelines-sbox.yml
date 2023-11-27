@@ -23,6 +23,7 @@ jobs:
           azureSubscription: ${{ variables.serviceConnection }}
           keyVaultName: ${{ variables.keyvaultName }}
           secretsFilter: 'OWASPPostgresDb-v14-Password,OWASPPostgresDb-v14-Account,OWASPPostgresDb-v15-Password,OWASP-NVD-API-KEY-Password,OWASPPostgresDb-v15-Account'
+          RunAsPreJob: true
 
       - task: Gradle@2
         displayName: 'Running OWASP DB migrations'
