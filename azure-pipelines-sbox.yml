@@ -17,12 +17,13 @@ jobs:
       keyvaultName: cftsbox-intsvc
     timeoutInMinutes: 600
     steps:
-      - task: AzureKeyVault@1
+      - task: AzureKeyVault@2
         displayName: 'Get secrets from Keyvault'
         inputs:
           azureSubscription: ${{ variables.serviceConnection }}
           keyVaultName: ${{ variables.keyvaultName }}
-          secretsFilter: 'OWASPPostgresDb-v14-Password,OWASPPostgresDb-v14-Account'
+          secretsFilter: 'OWASPPostgresDb-v14-Password,OWASPPostgresDb-v14-Account,OWASPPostgresDb-v15-Password,OWASPPostgresDb-v15-Account,nvd-api-key'
+          RunAsPreJob: true
 
       - task: Gradle@2
         displayName: 'Running OWASP DB migrations'
@@ -39,3 +40,19 @@ jobs:
           options: "--build-file build-v6.gradle -DfailBuild='true' -Dcve.check.validforhours=24 -Ddata.driver_name=org.postgresql.Driver -Ddata.connection_string=jdbc:postgresql://owaspdependency-v14-flexible-sandbox.postgres.database.azure.com/owaspdependencycheck -Ddata.user=$(OWASPPostgresDb-v14-Account) -Ddata.password=$(OWASPPostgresDb-v14-Password) -Ddatabase.batchinsert.enabled='true'"
           tasks: 'dependencyCheckUpdate'
           gradleOptions: -Xmx2g -XX:+HeapDumpOnOutOfMemoryError
+
+      - task: Gradle@2
+        displayName: 'Running OWASP V15 DB migrations'
+        inputs:
+          gradleWrapperFile: 'gradlew'
+          options: "--build-file build-v9.gradle -DfailBuild='true' -Dflyway.url=jdbc:postgresql://owaspdependency-sandbox.postgres.database.azure.com/owaspdependencycheck -Dflyway.user=$(OWASPPostgresDb-v15-Account) -Dflyway.password=$(OWASPPostgresDb-v15-Password) -Dflyway.locations=filesystem:db-migrations/v6"
+          tasks: 'flywayMigrate'
+          gradleOptions: -Xmx2g -XX:+HeapDumpOnOutOfMemoryError
+
+      - task: Gradle@2
+        displayName: 'Updating OWASP V15 DB'
+        inputs:
+          gradleWrapperFile: 'gradlew'
+          options: "--build-file build-v9.gradle -DfailBuild='true' -Dcve.check.validforhours=24 -Ddata.driver_name=org.postgresql.Driver -Ddata.connection_string=jdbc:postgresql://owaspdependency-sandbox.postgres.database.azure.com/owaspdependencycheck -Ddata.user=$(OWASPPostgresDb-v15-Account) -Dnvd.api.key=$(nvd-api-key) -Ddata.password=$(OWASPPostgresDb-v15-Password) -Ddatabase.batchinsert.enabled='true'"
+          tasks: 'dependencyCheckUpdate'
+          gradleOptions: -Xmx3g -XX:+HeapDumpOnOutOfMemoryError

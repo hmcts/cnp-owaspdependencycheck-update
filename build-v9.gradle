@@ -1,0 +1,20 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath  group: 'org.postgresql', name: 'postgresql', version: '42.2.5'
+    }
+}
+plugins {
+    id "org.flywaydb.flyway" version "8.5.13"
+    id 'org.owasp.dependencycheck' version '9.0.2'
+}
+
+group = 'uk.gov.hmcts'
+
+
+repositories {
+    mavenCentral()
+}
