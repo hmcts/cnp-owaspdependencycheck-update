@@ -4,11 +4,11 @@ buildscript {
     }
 
     dependencies {
-        classpath  group: 'org.postgresql', name: 'postgresql', version: '42.2.5'
+        classpath  group: 'org.postgresql', name: 'postgresql', version: '42.7.3'
     }
 }
 plugins {
-    id "org.flywaydb.flyway" version "8.5.13"
+    id "org.flywaydb.flyway" version "10.15.2"
     id 'org.owasp.dependencycheck' version '10.0.3'
 }
 
