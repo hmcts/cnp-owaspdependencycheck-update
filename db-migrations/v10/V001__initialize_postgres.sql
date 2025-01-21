@@ -3,8 +3,7 @@
 CREATE USER dcuser WITH PASSWORD 'DC-Pass1337!';
 
 DROP FUNCTION IF EXISTS public.save_property;
---DROP FUNCTION IF EXISTS public.update_vulnerability;
-DROP PROCEDURE IF EXISTS dependencycheck.update_vulnerability;
+DROP FUNCTION IF EXISTS public.update_vulnerability;
 DROP FUNCTION IF EXISTS public.insert_software;
 DROP FUNCTION IF EXISTS public.merge_ecosystem;
 DROP TABLE IF EXISTS software;
@@ -25,20 +24,7 @@ CREATE TABLE vulnerability (id SERIAL PRIMARY KEY, cve VARCHAR(20) UNIQUE,
     v3ImpactScore DECIMAL(3,1), v3AttackVector VARCHAR(20), v3AttackComplexity VARCHAR(20), 
     v3PrivilegesRequired VARCHAR(20), v3UserInteraction VARCHAR(20), v3Scope VARCHAR(20), 
     v3ConfidentialityImpact VARCHAR(20), v3IntegrityImpact VARCHAR(20), v3AvailabilityImpact VARCHAR(20), 
-    v3BaseScore DECIMAL(3,1), v3BaseSeverity VARCHAR(20), v3Version VARCHAR(5),
-        v4version VARCHAR(5), v4attackVector VARCHAR(15), v4attackComplexity VARCHAR(15),
-        v4attackRequirements VARCHAR(15), v4privilegesRequired VARCHAR(15), v4userInteraction VARCHAR(15),
-        v4vulnConfidentialityImpact VARCHAR(15), v4vulnIntegrityImpact VARCHAR(15), v4vulnAvailabilityImpact VARCHAR(15),
-        v4subConfidentialityImpact VARCHAR(15), v4subIntegrityImpact VARCHAR(15),
-        v4subAvailabilityImpact VARCHAR(15), v4exploitMaturity VARCHAR(20), v4confidentialityRequirement VARCHAR(15),
-        v4integrityRequirement VARCHAR(15), v4availabilityRequirement VARCHAR(15), v4modifiedAttackVector VARCHAR(15),
-        v4modifiedAttackComplexity VARCHAR(15), v4modifiedAttackRequirements VARCHAR(15), v4modifiedPrivilegesRequired VARCHAR(15),
-        v4modifiedUserInteraction VARCHAR(15), v4modifiedVulnConfidentialityImpact VARCHAR(15), v4modifiedVulnIntegrityImpact VARCHAR(15),
-        v4modifiedVulnAvailabilityImpact VARCHAR(15), v4modifiedSubConfidentialityImpact VARCHAR(15), v4modifiedSubIntegrityImpact VARCHAR(15),
-        v4modifiedSubAvailabilityImpact VARCHAR(15), v4safety VARCHAR(15), v4automatable VARCHAR(15), v4recovery VARCHAR(15),
-        v4valueDensity VARCHAR(15), v4vulnerabilityResponseEffort VARCHAR(15), v4providerUrgency VARCHAR(15),
-        v4baseScore DECIMAL(3,1), v4baseSeverity VARCHAR(15), v4threatScore DECIMAL(3,1), v4threatSeverity VARCHAR(15),
-        v4environmentalScore DECIMAL(3,1), v4environmentalSeverity VARCHAR(15), v4source VARCHAR(50), v4type VARCHAR(15));
+    v3BaseScore DECIMAL(3,1), v3BaseSeverity VARCHAR(20), v3Version VARCHAR(5));
 
 CREATE TABLE reference (cveid INT, name VARCHAR(1000), url VARCHAR(1000), source VARCHAR(255),
     CONSTRAINT fkReference FOREIGN KEY (cveid) REFERENCES vulnerability(id) ON DELETE CASCADE);
@@ -81,8 +67,8 @@ AS $$
 UPDATE properties SET "value"=val WHERE id=prop;
 
 INSERT INTO properties (id, value)
-    SELECT prop, val
-    WHERE NOT EXISTS (SELECT 1 FROM properties WHERE id=prop);
+	SELECT prop, val
+	WHERE NOT EXISTS (SELECT 1 FROM properties WHERE id=prop);
 $$ LANGUAGE sql;
 
 GRANT EXECUTE ON FUNCTION public.save_property(varchar(50),varchar(500)) TO dcuser;
@@ -102,7 +88,7 @@ $$ LANGUAGE plpgsql;
 
 GRANT EXECUTE ON FUNCTION public.save_property(varchar(50),varchar(500)) TO dcuser;
 
-CREATE PROCEDURE update_vulnerability (
+CREATE FUNCTION update_vulnerability (
     IN p_cveId VARCHAR(20), IN p_description VARCHAR(8000), IN p_v2Severity VARCHAR(20), 
     IN p_v2ExploitabilityScore DECIMAL(3,1), IN p_v2ImpactScore DECIMAL(3,1), IN p_v2AcInsufInfo BOOLEAN, 
     IN p_v2ObtainAllPrivilege BOOLEAN, IN p_v2ObtainUserPrivilege BOOLEAN, IN p_v2ObtainOtherPrivilege BOOLEAN, 
@@ -113,20 +99,7 @@ CREATE PROCEDURE update_vulnerability (
     IN p_v3AttackComplexity VARCHAR(20), IN p_v3PrivilegesRequired VARCHAR(20), IN p_v3UserInteraction VARCHAR(20), 
     IN p_v3Scope VARCHAR(20), IN p_v3ConfidentialityImpact VARCHAR(20), IN p_v3IntegrityImpact VARCHAR(20), 
     IN p_v3AvailabilityImpact VARCHAR(20), IN p_v3BaseScore DECIMAL(3,1), IN p_v3BaseSeverity VARCHAR(20), 
-    IN p_v3Version VARCHAR(5), IN p_v4version VARCHAR(5), IN p_v4attackVector VARCHAR(15), IN p_v4attackComplexity VARCHAR(15), 
-    IN p_v4attackRequirements VARCHAR(15), IN p_v4privilegesRequired VARCHAR(15), IN p_v4userInteraction VARCHAR(15), 
-    IN p_v4vulnConfidentialityImpact VARCHAR(15), IN p_v4vulnIntegrityImpact VARCHAR(15), IN p_v4vulnAvailabilityImpact VARCHAR(15), 
-    IN p_v4subConfidentialityImpact VARCHAR(15), IN p_v4subIntegrityImpact VARCHAR(15), IN p_v4subAvailabilityImpact VARCHAR(15), 
-    IN p_v4exploitMaturity VARCHAR(20), IN p_v4confidentialityRequirement VARCHAR(15), IN p_v4integrityRequirement VARCHAR(15), 
-    IN p_v4availabilityRequirement VARCHAR(15), IN p_v4modifiedAttackVector VARCHAR(15), IN p_v4modifiedAttackComplexity VARCHAR(15), 
-    IN p_v4modifiedAttackRequirements VARCHAR(15), IN p_v4modifiedPrivilegesRequired VARCHAR(15), IN p_v4modifiedUserInteraction VARCHAR(15), 
-    IN p_v4modifiedVulnConfidentialityImpact VARCHAR(15), IN p_v4modifiedVulnIntegrityImpact VARCHAR(15), 
-    IN p_v4modifiedVulnAvailabilityImpact VARCHAR(15), IN p_v4modifiedSubConfidentialityImpact VARCHAR(15), 
-    IN p_v4modifiedSubIntegrityImpact VARCHAR(15), IN p_v4modifiedSubAvailabilityImpact VARCHAR(15), IN p_v4safety VARCHAR(15), 
-    IN p_v4automatable VARCHAR(15), IN p_v4recovery VARCHAR(15), IN p_v4valueDensity VARCHAR(15), IN p_v4vulnerabilityResponseEffort VARCHAR(15), 
-    IN p_v4providerUrgency VARCHAR(15), IN p_v4baseScore DECIMAL(3,1), IN p_v4baseSeverity VARCHAR(15), IN p_v4threatScore DECIMAL(3,1), 
-    IN p_v4threatSeverity VARCHAR(15), IN p_v4environmentalScore DECIMAL(3,1), IN p_v4environmentalSeverity VARCHAR(15),
-    IN p_v4source VARCHAR(50), IN p_v4type VARCHAR(15))
+    IN p_v3Version VARCHAR(5))
 RETURNS TABLE (vulnerabilityId INT)
 AS $$
 DECLARE vulnerabilityId integer := 0;
@@ -180,7 +153,7 @@ RETURN QUERY SELECT vulnerabilityId;
 END;
 $$ LANGUAGE plpgsql;
 
-GRANT EXECUTE ON PROCEDURE public.update_vulnerability(VARCHAR(20), VARCHAR(8000), 
+GRANT EXECUTE ON FUNCTION public.update_vulnerability(VARCHAR(20), VARCHAR(8000), 
     VARCHAR(20), DECIMAL(3,1), DECIMAL(3,1), BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, 
     BOOLEAN, DECIMAL(3,1), VARCHAR(20), VARCHAR(20), VARCHAR(20), VARCHAR(20), 
     VARCHAR(20), VARCHAR(20), VARCHAR(5), DECIMAL(3,1), DECIMAL(3,1), VARCHAR(20), 
