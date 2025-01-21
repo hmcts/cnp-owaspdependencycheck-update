@@ -46,8 +46,6 @@ IF vulnerabilityId > 0 THEN
         v3AttackComplexity=p_v3AttackComplexity, v3PrivilegesRequired=p_v3PrivilegesRequired, v3UserInteraction=p_v3UserInteraction, 
         v3Scope=p_v3Scope, v3ConfidentialityImpact=p_v3ConfidentialityImpact, v3IntegrityImpact=p_v3IntegrityImpact, 
         v3AvailabilityImpact=p_v3AvailabilityImpact, v3BaseScore=p_v3BaseScore, v3BaseSeverity=p_v3BaseSeverity, v3Version=p_v3Version,
-
-
         v4version=p_v4version, v4attackVector=p_v4attackVector, v4attackComplexity=p_v4attackComplexity,
         v4attackRequirements=p_v4attackRequirements, v4privilegesRequired=p_v4privilegesRequired, v4userInteraction=p_v4userInteraction,
         v4vulnConfidentialityImpact=p_v4vulnConfidentialityImpact, v4vulnIntegrityImpact=p_v4vulnIntegrityImpact, v4vulnAvailabilityImpact=p_v4vulnAvailabilityImpact,
