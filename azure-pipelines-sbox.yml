@@ -29,7 +29,7 @@ jobs:
         displayName: "Running OWASP V15 DB migrations"
         inputs:
           gradleWrapperFile: "gradlew"
-          options: "--build-file build-v10.gradle -DfailBuild='true' -Dflyway.url=jdbc:postgresql://owaspdependency-sandbox.postgres.database.azure.com/owaspdependencycheck -Dflyway.user=$(OWASPPostgresDb-v15-Account) -Dflyway.password=$(OWASPPostgresDb-v15-Password) -Dflyway.locations=filesystem:db-migrations/v6"
+          options: "--build-file build-v10.gradle -DfailBuild='true' -Dflyway.url=jdbc:postgresql://owaspdependency-sandbox.postgres.database.azure.com/owaspdependencycheck -Dflyway.user=$(OWASPPostgresDb-v15-Account) -Dflyway.password=$(OWASPPostgresDb-v15-Password) -Dflyway.locations=filesystem:db-migrations/v10"
           tasks: "flywayMigrate"
           gradleOptions: -Xmx2g -XX:+HeapDumpOnOutOfMemoryError
 
