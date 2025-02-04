@@ -18,12 +18,13 @@ jobs:
       keyvaultName: cftptl-intsvc
     timeoutInMinutes: 600
     steps:
-      - task: AzureKeyVault@1
+      - task: AzureKeyVault@2
         displayName: 'Get secrets from Keyvault'
         inputs:
           azureSubscription: ${{ variables.serviceConnection }}
           keyVaultName: ${{ variables.keyvaultName }}
           secretsFilter: 'OWASPPostgresDb-v15-Password,OWASPPostgresDb-v15-Account,nvd-api-key'
+          RunAsPreJob: true
 
       - task: Gradle@2
         displayName: 'Running OWASP V15 DB migrations'
