@@ -25,7 +25,7 @@ jobs:
           secretsFilter: "OWASPPostgresDb-v15-Password,OWASPPostgresDb-v15-Account,nvd-api-key"
           RunAsPreJob: true
 
-      - task: Gradle@2
+      - task: Gradle@3
         displayName: "Running OWASP V15 DB migrations"
         inputs:
           gradleWrapperFile: "gradlew"
@@ -33,7 +33,7 @@ jobs:
           tasks: "flywayMigrate"
           gradleOptions: -Xmx2g -XX:+HeapDumpOnOutOfMemoryError
 
-      - task: Gradle@2
+      - task: Gradle@3
         displayName: "Updating OWASP V15 DB"
         inputs:
           gradleWrapperFile: "gradlew"
