@@ -1,7 +1,7 @@
 trigger: none
 pr: none
 schedules:
-  - cron: "*/10 8-17/3 * * *"
+  - cron: "10 8-17/3 * * *"
     displayName: Run update every 3 hours between 9am and 6pm GMT
     branches:
       include:
