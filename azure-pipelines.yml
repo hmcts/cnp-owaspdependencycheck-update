@@ -35,6 +35,14 @@ jobs:
           gradleOptions: -Xmx2g -XX:+HeapDumpOnOutOfMemoryError
 
       - task: Gradle@2
+        displayName: "Dependency Check Purge"
+        inputs:
+          gradleWrapperFile: 'gradlew'
+          options: "--build-file build-v9.gradle -DfailOnError='true'"
+          tasks: 'dependencyCheckPurge'
+          gradleOptions: -Xmx3g -XX:+HeapDumpOnOutOfMemoryError
+
+      - task: Gradle@2
         displayName: 'Updating OWASP V15 DB'
         inputs:
           gradleWrapperFile: 'gradlew'
