@@ -92,7 +92,7 @@ jobs:
               export PATH="${JAVA_HOME}/bin:${PATH}"
             fi
             java -version
-            rm -rf cache && mkdir -p cache
+            mkdir -p cache
             # vulnz reads the NVD API key from the NVD_API_KEY env var (set below),
             # which authenticates the build for a much higher rate limit. No CLI
             # flag is needed (and --apikey is discouraged by the tool).
