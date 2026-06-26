@@ -1,0 +1,126 @@
+# =============================================================================
+# DTSPO-32997 — NVD datafeed mirror (Option B)
+# =============================================================================
+#
+# Purpose
+#   Build a local mirror of the NVD CVE data with the open-vulnerability-cli
+#   (https://github.com/jeremylong/open-vulnerability-cli) and publish the
+#   gzipped yearly feed files to Azure Blob Storage. DependencyCheck consumers
+#   (this repo's DB-update pipelines and the downstream service builds) then read
+#   the feed via -Dnvd.api.datafeed.url instead of paging the flaky NVD live API.
+#
+# Why
+#   The live NVD API is unstable (HTTP/2 stream resets), which makes the paged
+#   update take many hours and frequently abort or kill the agent. The CLI
+#   mirror is resilient (resumable, retrying) and — critically — if a mirror run
+#   fails, the previously published copy stays in blob storage, so consumers are
+#   never blocked. Consuming the datafeed is a handful of gz downloads instead of
+#   ~170 paged API calls, so the DB update drops from hours to minutes.
+#
+# Prerequisites (provision BEFORE enabling the schedule)
+#   1. A storage account + blob container (e.g. <account>/nvd) reachable by the
+#      prod agent pool AND the downstream Jenkins builds.
+#   2. Read access for consumers: either anonymous (public) read on the container
+#      OR a long-lived read SAS appended to the datafeed URL.
+#   3. The pipeline's service-connection principal (azurerm-prod) needs
+#      "Storage Blob Data Contributor" on the storage account (for the upload).
+#   4. Key Vault secret 'nvd-api-key' (already present in cftptl-intsvc).
+#   5. Agent must have Java 17+ available (vulnz 8.0.0+ requires it). If the pool
+#      only has Java 11, either add a JavaToolInstaller step or use the Docker
+#      alternative noted in the "Build NVD datafeed cache" step below.
+#
+# Consumer wiring (see azure-pipelines.yml / azure-pipelines-sbox.yml)
+#   -Dnvd.api.datafeed.url=https://<account>.blob.core.windows.net/nvd/nvdcve-{0}.json.gz
+#   ({0} is substituted with the year; cache.properties must sit alongside.)
+# =============================================================================
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "0 */6 * * *"
+    displayName: Mirror NVD datafeed every 6 hours
+    branches:
+      include:
+        - master
+    always: "true"
+
+variables:
+  serviceConnection: azurerm-prod
+  keyvaultName: cftptl-intsvc
+  # TODO(DTSPO-32997): set to the provisioned storage account + container.
+  storageAccount: "REPLACE_WITH_STORAGE_ACCOUNT"
+  storageContainer: "nvd"
+  # Pin to a verified release of open-vulnerability-cli (vulnz).
+  vulnzVersion: "9.0.4"
+
+jobs:
+  - job: nvd_mirror
+    displayName: Mirror NVD datafeed to Blob Storage
+    pool:
+      name: "hmcts-cftptl-agent-pool"
+    timeoutInMinutes: 120
+    steps:
+      - task: AzureKeyVault@2
+        displayName: "Get secrets from Keyvault"
+        inputs:
+          azureSubscription: ${{ variables.serviceConnection }}
+          keyVaultName: ${{ variables.keyvaultName }}
+          secretsFilter: "nvd-api-key"
+          RunAsPreJob: true
+
+      - task: Bash@3
+        displayName: "Download open-vulnerability-cli (vulnz)"
+        inputs:
+          targetType: inline
+          script: |
+            set -euo pipefail
+            JAR="vulnz-${VULNZ_VERSION}.jar"
+            URL="https://github.com/jeremylong/open-vulnerability-cli/releases/download/v${VULNZ_VERSION}/${JAR}"
+            echo "Downloading ${URL}"
+            curl -sSfL "${URL}" -o "${JAR}"
+            chmod +x "${JAR}"
+        env:
+          VULNZ_VERSION: $(vulnzVersion)
+
+      - task: Bash@3
+        displayName: "Build NVD datafeed cache"
+        inputs:
+          targetType: inline
+          script: |
+            set -euo pipefail
+            rm -rf cache && mkdir -p cache
+            # vulnz 8.0.0+ needs Java 17. Verify the agent's java:
+            java -version
+            # Produces cache.properties, nvdcve-modified.json.gz and
+            # nvdcve-<year>.json.gz (+ .meta files) under ./cache
+            java -Xmx2g -XX:+UseStringDeduplication \
+              -jar "vulnz-${VULNZ_VERSION}.jar" cve --cache --directory ./cache
+            echo "----- cache contents -----"
+            ls -lh cache
+            # Docker alternative (if the agent lacks Java 17 but has Docker):
+            #   docker run --rm -e NVD_API_KEY="${NVD_API_KEY}" -e JAVA_OPT=-Xmx2g \
+            #     -v "$(pwd)/cache:/usr/local/apache2/htdocs" \
+            #     jeremylong/open-vulnerability-data-mirror:v${VULNZ_VERSION} \
+            #     /mirror.sh
+        env:
+          VULNZ_VERSION: $(vulnzVersion)
+          NVD_API_KEY: $(nvd-api-key)
+
+      - task: AzureCLI@2
+        displayName: "Publish datafeed to Blob Storage"
+        inputs:
+          azureSubscription: ${{ variables.serviceConnection }}
+          scriptType: bash
+          scriptLocation: inlineScript
+          inlineScript: |
+            set -euo pipefail
+            # Upload the whole cache (gz feeds, .meta files and cache.properties).
+            # Do NOT set content-encoding: gzip — DependencyCheck expects the raw
+            # .gz bytes and decompresses them itself.
+            az storage blob upload-batch \
+              --account-name "$(storageAccount)" \
+              --destination "$(storageContainer)" \
+              --source cache \
+              --overwrite true \
+              --auth-mode login

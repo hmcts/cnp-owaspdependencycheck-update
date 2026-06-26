@@ -16,6 +16,13 @@ jobs:
     variables:
       serviceConnection: azurerm-prod
       keyvaultName: cftptl-intsvc
+      # DTSPO-32997 Option B: once azure-pipelines-nvd-mirror.yml is publishing the
+      # NVD feed to blob storage, set this to the mirror URL, e.g.
+      #   https://<account>.blob.core.windows.net/nvd/nvdcve-{0}.json.gz
+      # then append -Dnvd.api.datafeed.url=$(nvdDatafeedUrl) to the
+      # 'Updating OWASP V15 DB' options below. This reads the gz feeds instead of
+      # paging the live NVD API, cutting the update from hours to minutes.
+      nvdDatafeedUrl: ""
     timeoutInMinutes: 600
     steps:
       - task: AzureKeyVault@2
