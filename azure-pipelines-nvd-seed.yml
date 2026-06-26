@@ -99,7 +99,8 @@ jobs:
             # Produces cache.properties, nvdcve-modified.json.gz and
             # nvdcve-<year>.json.gz (+ .meta) under ./cache. Re-running resumes.
             java -Xmx2g -XX:+UseStringDeduplication \
-              -jar "vulnz-${VULNZ_VERSION}.jar" cve --cache --directory ./cache
+              -jar "vulnz-${VULNZ_VERSION}.jar" cve --cache --directory ./cache \
+              --recordsPerPage=500 --delay=1000
             echo "----- cache contents -----"
             ls -lh cache
             # Docker alternative (if the agent lacks Java 17 but has Docker):
