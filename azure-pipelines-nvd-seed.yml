@@ -93,16 +93,13 @@ jobs:
             fi
             java -version
             rm -rf cache && mkdir -p cache
-            # Pass the NVD API key when available so the cache build is
-            # authenticated (much higher rate limit; far fewer 403/timeout retries).
-            NVD_KEY_ARG=()
-            if [ -n "${NVD_API_KEY:-}" ]; then
-              NVD_KEY_ARG=(--nvd-api-key "${NVD_API_KEY}")
-            fi
+            # vulnz reads the NVD API key from the NVD_API_KEY env var (set below),
+            # which authenticates the build for a much higher rate limit. No CLI
+            # flag is needed (and --apikey is discouraged by the tool).
             # Produces cache.properties, nvdcve-modified.json.gz and
             # nvdcve-<year>.json.gz (+ .meta) under ./cache. Re-running resumes.
             java -Xmx2g -XX:+UseStringDeduplication \
-              -jar "vulnz-${VULNZ_VERSION}.jar" cve --cache --directory ./cache "${NVD_KEY_ARG[@]}"
+              -jar "vulnz-${VULNZ_VERSION}.jar" cve --cache --directory ./cache
             echo "----- cache contents -----"
             ls -lh cache
             # Docker alternative (if the agent lacks Java 17 but has Docker):
