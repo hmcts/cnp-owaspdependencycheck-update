@@ -25,6 +25,14 @@
 trigger: none
 pr: none
 
+schedules:
+- cron: '0 22 * * *'
+  displayName: Nightly seed attempt at 22:00 UTC (23:00 BST)
+  branches:
+    include:
+    - platops/dstpo-32997owasp-nvd-download
+  always: 'true'
+
 parameters:
   - name: environment
     displayName: Target environment
