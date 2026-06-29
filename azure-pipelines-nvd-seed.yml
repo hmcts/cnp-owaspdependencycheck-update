@@ -89,21 +89,24 @@ jobs:
           VULNZ_VERSION: ${{ parameters.vulnzVersion }}
 
       - task: Bash@3
-        displayName: "Build NVD cache (Docker mirror)"
+        displayName: "Build NVD cache (resumable)"
         inputs:
           targetType: inline
           script: |
             set -euo pipefail
+            # vulnz 8.0.0+ needs Java 17; prefer the agent's JDK 17 if available.
+            if [ -n "${JAVA_HOME_17_X64:-}" ]; then
+              export JAVA_HOME="${JAVA_HOME_17_X64}"
+              export PATH="${JAVA_HOME}/bin:${PATH}"
+            fi
+            java -version
             mkdir -p cache
-            # Use the maintainer's purpose-built mirror image instead of invoking
-            # the jar directly. It is more robust for full cache builds and avoids
-            # the JVM/agent OOM-abandonment seen with the jar. mirror.sh writes
-            # cache.properties + nvdcve-<year>.json.gz into the mounted htdocs dir.
-            docker run --rm \
-              -e NVD_API_KEY="${NVD_API_KEY}" \
-              -e JAVA_OPT=-Xmx2g \
-              -v "$(pwd)/cache:/usr/local/apache2/htdocs" \
-              jeremylong/open-vulnerability-data-mirror:v${VULNZ_VERSION} /mirror.sh
+            # vulnz reads the NVD API key from the NVD_API_KEY env var (set below).
+            # NOTE: these K8s pod agents have no Docker socket, so the maintainer's
+            # mirror container is not an option here; we invoke the jar directly.
+            java -Xmx2g -XX:+UseStringDeduplication \
+              -jar "vulnz-${VULNZ_VERSION}.jar" cve --cache --directory ./cache \
+              --recordsPerPage=500 --delay=1000
             echo "----- cache contents -----"
             ls -lh cache
         env:
