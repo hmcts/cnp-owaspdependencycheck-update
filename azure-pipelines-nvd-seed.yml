@@ -89,32 +89,23 @@ jobs:
           VULNZ_VERSION: ${{ parameters.vulnzVersion }}
 
       - task: Bash@3
-        displayName: "Build NVD cache (resumable)"
+        displayName: "Build NVD cache (Docker mirror)"
         inputs:
           targetType: inline
           script: |
             set -euo pipefail
-            # vulnz 8.0.0+ needs Java 17; prefer the agent's JDK 17 if available.
-            if [ -n "${JAVA_HOME_17_X64:-}" ]; then
-              export JAVA_HOME="${JAVA_HOME_17_X64}"
-              export PATH="${JAVA_HOME}/bin:${PATH}"
-            fi
-            java -version
             mkdir -p cache
-            # vulnz reads the NVD API key from the NVD_API_KEY env var (set below),
-            # which authenticates the build for a much higher rate limit. No CLI
-            # flag is needed (and --apikey is discouraged by the tool).
-            # Produces cache.properties, nvdcve-modified.json.gz and
-            # nvdcve-<year>.json.gz (+ .meta) under ./cache. Re-running resumes.
-            java -Xmx2g -XX:+UseStringDeduplication \
-              -jar "vulnz-${VULNZ_VERSION}.jar" cve --cache --directory ./cache \
-              --recordsPerPage=500 --delay=1000
+            # Use the maintainer's purpose-built mirror image instead of invoking
+            # the jar directly. It is more robust for full cache builds and avoids
+            # the JVM/agent OOM-abandonment seen with the jar. mirror.sh writes
+            # cache.properties + nvdcve-<year>.json.gz into the mounted htdocs dir.
+            docker run --rm \
+              -e NVD_API_KEY="${NVD_API_KEY}" \
+              -e JAVA_OPT=-Xmx2g \
+              -v "$(pwd)/cache:/usr/local/apache2/htdocs" \
+              jeremylong/open-vulnerability-data-mirror:v${VULNZ_VERSION} /mirror.sh
             echo "----- cache contents -----"
             ls -lh cache
-            # Docker alternative (if the agent lacks Java 17 but has Docker):
-            #   docker run --rm -e NVD_API_KEY="${NVD_API_KEY}" -e JAVA_OPT=-Xmx2g \
-            #     -v "$(pwd)/cache:/usr/local/apache2/htdocs" \
-            #     jeremylong/open-vulnerability-data-mirror:v${VULNZ_VERSION} /mirror.sh
         env:
           VULNZ_VERSION: ${{ parameters.vulnzVersion }}
           NVD_API_KEY: $(nvd-api-key)
