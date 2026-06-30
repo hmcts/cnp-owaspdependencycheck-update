@@ -15,13 +15,15 @@ jobs:
     variables:
       serviceConnection: azurerm-sandbox
       keyvaultName: cftsbox-intsvc
-      # DTSPO-32997 Option B: read the NVD yearly feeds from the blob mirror
-      # (azure-pipelines-nvd-mirror.yml) instead of paging the live NVD API. {0}
-      # is substituted by DependencyCheck with the year; the read SAS is appended
-      # at runtime from the Key Vault secret 'nvd-datafeed-sas'. The mirror runs
-      # in prod but syncs the SAS into cftsbox-intsvc each run. Validate here on
-      # sbox first before relying on it in prod.
-      nvdDatafeedUrl: "https://owaspnvdmirrorcftptl.blob.core.windows.net/nvd/nvdcve-{0}.json.gz"
+      # DTSPO-32997 Option B: the NVD feeds are mirrored to blob storage by
+      # azure-pipelines-nvd-mirror.yml. We download them to ./cache with the read
+      # SAS (synced into cftsbox-intsvc by the mirror), then point DependencyCheck
+      # at the local files via a file: datafeed URL. ODC string-appends to the
+      # configured URL when building each feed / cache.properties URL, so it can't
+      # consume a blob URL carrying a ?<SAS> query string directly - hence
+      # download-then-read-local. Validate here on sbox first.
+      mirrorStorageAccount: owaspnvdmirrorcftptl
+      mirrorStorageContainer: nvd
     timeoutInMinutes: 600
     steps:
       - task: AzureKeyVault@2
@@ -40,10 +42,33 @@ jobs:
           tasks: "flywayMigrate"
           gradleOptions: -Xmx2g -XX:+HeapDumpOnOutOfMemoryError
 
+      - task: AzureCLI@2
+        displayName: "Download NVD datafeed from blob mirror"
+        inputs:
+          azureSubscription: ${{ variables.serviceConnection }}
+          scriptType: bash
+          scriptLocation: inlineScript
+          inlineScript: |
+            set -euo pipefail
+            # ODC can't read a SAS-bearing blob URL directly, so pull the mirrored
+            # feeds (gz + .meta + cache.properties) to a local cache and let ODC
+            # read them via a file: datafeed URL.
+            mkdir -p cache
+            az storage blob download-batch \
+              --account-name "$(mirrorStorageAccount)" \
+              --source "$(mirrorStorageContainer)" \
+              --destination cache \
+              --sas-token "$NVD_SAS" \
+              --no-progress
+            echo "----- cache contents -----"
+            ls -lh cache
+        env:
+          NVD_SAS: $(nvd-datafeed-sas)
+
       - task: Gradle@2
         displayName: "Updating OWASP V15 DB"
         inputs:
           gradleWrapperFile: "gradlew"
-          options: "--build-file build-v10.gradle -DfailOnError='true' -Dorg.gradle.debug='true' --info -Ddata.driver_name=org.postgresql.Driver -Ddata.connection_string=jdbc:postgresql://owaspdependency-sandbox.postgres.database.azure.com/owaspdependencycheck -Ddata.user=$(OWASPPostgresDb-v15-Account) -Dnvd.api.key=$(nvd-api-key) -Dnvd.api.delay=10000 -Dnvd.api.max.retry.count=30 -Dnvd.api.datafeed.url=$(nvdDatafeedUrl)?$(nvd-datafeed-sas) -Ddata.password=$(OWASPPostgresDb-v15-Password) -Ddatabase.batchinsert.enabled='true'"
+          options: "--build-file build-v10.gradle -DfailOnError='true' -Dorg.gradle.debug='true' --info -Ddata.driver_name=org.postgresql.Driver -Ddata.connection_string=jdbc:postgresql://owaspdependency-sandbox.postgres.database.azure.com/owaspdependencycheck -Ddata.user=$(OWASPPostgresDb-v15-Account) -Dnvd.api.key=$(nvd-api-key) -Dnvd.api.delay=10000 -Dnvd.api.max.retry.count=30 -Dnvd.api.datafeed.url=file:$(System.DefaultWorkingDirectory)/cache/nvdcve-{0}.json.gz -Ddata.password=$(OWASPPostgresDb-v15-Password) -Ddatabase.batchinsert.enabled='true'"
           tasks: "dependencyCheckUpdate"
           gradleOptions: -Xmx3g -XX:+HeapDumpOnOutOfMemoryError

@@ -57,8 +57,8 @@ mirror run leaves the previously published copy in place.
 | Resource group | `core-infra-intsvc-rg` (uksouth) |
 | Storage account | `owaspnvdmirrorcftptl` (private, no public blob access) |
 | Container | `nvd` |
-| Datafeed URL | `https://owaspnvdmirrorcftptl.blob.core.windows.net/nvd/nvdcve-{0}.json.gz?<SAS>` |
-| Read SAS | Key Vault secret `nvd-datafeed-sas`, container-scoped `rl`, 90-day expiry |
+| Datafeed (consumer-side) | feeds downloaded to `./cache`, read by ODC via `file:$(System.DefaultWorkingDirectory)/cache/nvdcve-{0}.json.gz` |
+| Read SAS | Key Vault secret `nvd-datafeed-sas`, container-scoped `rl`, 90-day expiry (used by `az` to download, not by ODC) |
 
 The container stays private. Consumers read it with a **rotated read SAS**: the
 mirror mints a fresh 90-day container SAS on every run and stores it in Key Vault
@@ -83,15 +83,25 @@ query string, so no cross-subscription RBAC is needed to consume it).
 
 ### Consumer wiring (already in place)
 
+DependencyCheck builds each feed / `cache.properties` URL by string-appending to
+the configured datafeed URL, so it **cannot** consume a blob URL that carries a
+`?<SAS>` query string (it ends up requesting `...nvdcve-{0}.json.gz?<SAS>/cache.properties`
+and fails with `Invalid NVD Cache / Data Feed URL`). The container is private, so
+we can't use a clean anonymous URL either. The consumers therefore **download the
+feeds locally first, then read them via a `file:` URL** (the same approach as the
+seed pipeline).
+
 Both `azure-pipelines.yml` and `azure-pipelines-sbox.yml`:
 
 - add `nvd-datafeed-sas` to the `AzureKeyVault@2` `secretsFilter`;
-- set `nvdDatafeedUrl` to the blob base URL above;
-- append `-Dnvd.api.datafeed.url=$(nvdDatafeedUrl)?$(nvd-datafeed-sas)` to the
-  `Updating OWASP V15 DB` (`dependencyCheckUpdate`) options.
+- add an `AzureCLI@2` step that runs
+  `az storage blob download-batch --account-name owaspnvdmirrorcftptl --source nvd --destination cache --sas-token <SAS>`
+  (the SAS authenticates `az`, no blob RBAC needed and no cross-subscription grant);
+- set `-Dnvd.api.datafeed.url=file:$(System.DefaultWorkingDirectory)/cache/nvdcve-{0}.json.gz`
+  on the `Updating OWASP V15 DB` (`dependencyCheckUpdate`) step.
 
 `-Dnvd.api.key` is kept only for the small recent "modified" window; the bulk
-yearly data now comes from the blob mirror.
+yearly data now comes from the local copy of the mirror.
 
 ### RBAC the mirror needs
 
