@@ -69,6 +69,10 @@ jobs:
         displayName: "Updating OWASP V15 DB"
         inputs:
           gradleWrapperFile: "gradlew"
+<<<<<<< platops/dstpo-32997owasp-nvd-download
           options: "--build-file build-v10.gradle -DfailOnError='true' -Dorg.gradle.debug='true' --info -Ddata.driver_name=org.postgresql.Driver -Ddata.connection_string=jdbc:postgresql://owaspdependency-sandbox.postgres.database.azure.com/owaspdependencycheck -Ddata.user=$(OWASPPostgresDb-v15-Account) -Dnvd.api.key=$(nvd-api-key) -Dnvd.api.delay=10000 -Dnvd.api.max.retry.count=30 -Dnvd.api.datafeed.url=file:$(System.DefaultWorkingDirectory)/cache/nvdcve-{0}.json.gz -Ddata.password=$(OWASPPostgresDb-v15-Password) -Ddatabase.batchinsert.enabled='true'"
+=======
+          options: "--build-file build-v10.gradle -DfailOnError='true' -Dorg.gradle.debug='true' --info -Ddata.driver_name=org.postgresql.Driver -Ddata.connection_string=jdbc:postgresql://owaspdependency-sandbox.postgres.database.azure.com/owaspdependencycheck -Ddata.user=$(OWASPPostgresDb-v15-Account) -Dnvd.api.key=$(nvd-api-key) -Dnvd.api.delay=10000 -Dnvd.api.max.retry.count=30 -Ddata.password=$(OWASPPostgresDb-v15-Password) -Ddatabase.batchinsert.enabled='true'"
+>>>>>>> master
           tasks: "dependencyCheckUpdate"
           gradleOptions: -Xmx3g -XX:+HeapDumpOnOutOfMemoryError
