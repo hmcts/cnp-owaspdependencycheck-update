@@ -6,3 +6,8 @@ build
 
 # IDE
 .idea/
+
+# DTSPO-32997: local NVD datafeed cache + vulnz CLI (never commit these)
+cache/
+nvd-cache.log
+vulnz-*.jar

@@ -6,9 +6,9 @@ Pipeline for automating owasp dependency check updates to Azure DB.
 
 | File | Purpose |
 | ---- | ------- |
-| `azure-pipelines.yml` | Production: Flyway-migrates the shared cached OWASP DB then refreshes the NVD data (every 3h). |
+| `azure-pipelines.yml` | Production: Flyway-migrates the shared cached OWASP DB then refreshes the NVD data from the blob mirror (every 3h). |
 | `azure-pipelines-sbox.yml` | Sandbox equivalent of the production pipeline. |
-| `azure-pipelines-nvd-mirror.yml` | DTSPO-32997 Option B: mirrors the NVD datafeed to Blob Storage (see below). |
+| `azure-pipelines-nvd-mirror.yml` | DTSPO-32997 Option B: builds the NVD datafeed and publishes it to Blob Storage; the producer that prod/sbox read (see below). |
 | `azure-pipelines-nvd-seed.yml` | DTSPO-32997 interim: one-off manual job to seed the DB from a local NVD cache (see below). |
 
 The active jobs use `build-v10.gradle` and `db-migrations/v10`. `build-v6.gradle`
@@ -49,22 +49,61 @@ Azure Blob Storage. DependencyCheck then consumes the feed via
 downloads (hours -> minutes) and decoupling consumers from NVD outages — a failed
 mirror run leaves the previously published copy in place.
 
-### Rollout steps
+### Realised setup
 
-1. **Provision storage**: a storage account + blob container (e.g. `<account>/nvd`)
-   reachable by the prod agent pool and the downstream Jenkins builds. Give the
-   `azurerm-prod` service-connection principal `Storage Blob Data Contributor`.
-2. **Consumer read access**: enable anonymous read on the container, or generate a
-   long-lived read SAS to append to the datafeed URL.
-3. **Configure the mirror pipeline**: set `storageAccount` (and `vulnzVersion` if
-   newer) in `azure-pipelines-nvd-mirror.yml`. Ensure the agent has Java 17+
-   (vulnz 8.0.0+ requirement) or use the Docker alternative noted in the file.
-4. **Run the mirror** and confirm `cache.properties` + `nvdcve-*.json.gz` land in
-   the container.
-5. **Wire up consumers**: set `nvdDatafeedUrl` to
-   `https://<account>.blob.core.windows.net/nvd/nvdcve-{0}.json.gz` and append
-   `-Dnvd.api.datafeed.url=$(nvdDatafeedUrl)` to the `Updating OWASP V15 DB`
-   options — **on sandbox first**, then production once validated.
-6. **Downstream builds** (e.g. `dependencyCheckAggregate` in the Jenkins pipeline
-   library) should set the same `nvd.api.datafeed.url` so they never fall back to
-   the live API when the shared cache is stale.
+| Thing | Value |
+| ----- | ----- |
+| Subscription | `DTS-CFTPTL-INTSVC` |
+| Resource group | `core-infra-intsvc-rg` (uksouth) |
+| Storage account | `owaspnvdmirrorcftptl` (private, no public blob access) |
+| Container | `nvd` |
+| Datafeed URL | `https://owaspnvdmirrorcftptl.blob.core.windows.net/nvd/nvdcve-{0}.json.gz?<SAS>` |
+| Read SAS | Key Vault secret `nvd-datafeed-sas`, container-scoped `rl`, 90-day expiry |
+
+The container stays private. Consumers read it with a **rotated read SAS**: the
+mirror mints a fresh 90-day container SAS on every run and stores it in Key Vault
+as `nvd-datafeed-sas`, so the token is always renewed long before it expires (no
+manual rotation, no silent 403s). Because prod reads `cftptl-intsvc` but sbox
+reads `cftsbox-intsvc`, the mirror writes the same token to **both** vaults each
+run (the blob itself lives only in the prod subscription; the SAS is just a URL
+query string, so no cross-subscription RBAC is needed to consume it).
+
+### How it runs
+
+- **Schedule**: the mirror runs every 6h on the prod pool (`hmcts-cftptl-agent-pool`,
+  3h cap), seeding from the existing blob copy and updating incrementally.
+- **Full rebuild**: run the mirror manually with the `fullRebuild` parameter set
+  to `true` to force a clean ~7h pull from NVD on the 9h sandbox pool
+  (`hmcts-sandbox-agent-pool`) — e.g. if the blob mirror is ever lost or
+  corrupted. The mirror is decoupled from consumers, so a long full run blocks
+  nobody.
+- **Cold-start note**: the initial blob contents were built off-agent (a local
+  ~7h authenticated `vulnz` run) and uploaded once, because a from-scratch pull
+  exceeds the prod pool's 3h cap. Routine runs only need the incremental path.
+
+### Consumer wiring (already in place)
+
+Both `azure-pipelines.yml` and `azure-pipelines-sbox.yml`:
+
+- add `nvd-datafeed-sas` to the `AzureKeyVault@2` `secretsFilter`;
+- set `nvdDatafeedUrl` to the blob base URL above;
+- append `-Dnvd.api.datafeed.url=$(nvdDatafeedUrl)?$(nvd-datafeed-sas)` to the
+  `Updating OWASP V15 DB` (`dependencyCheckUpdate`) options.
+
+`-Dnvd.api.key` is kept only for the small recent "modified" window; the bulk
+yearly data now comes from the blob mirror.
+
+### RBAC the mirror needs
+
+- `azurerm-prod` SP on `owaspnvdmirrorcftptl`: `Storage Blob Data Contributor`
+  (upload/download with `--auth-mode login`) **and** the ability to list account
+  keys (`Contributor` or *Storage Account Key Operator Service Role*), plus `set`
+  on secrets in `cftptl-intsvc`.
+- `azurerm-sandbox` SP: `set` on secrets in `cftsbox-intsvc` (already granted via
+  the sbox pipelines).
+
+### Downstream builds
+
+Downstream consumers (e.g. `dependencyCheckAggregate` in the Jenkins pipeline
+library) should set the same `nvd.api.datafeed.url` so they never fall back to the
+live API when the shared cache is stale.

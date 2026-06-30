@@ -15,12 +15,13 @@ jobs:
     variables:
       serviceConnection: azurerm-sandbox
       keyvaultName: cftsbox-intsvc
-      # DTSPO-32997 Option B: once azure-pipelines-nvd-mirror.yml is publishing the
-      # NVD feed to blob storage, set this to the mirror URL, e.g.
-      #   https://<account>.blob.core.windows.net/nvd/nvdcve-{0}.json.gz
-      # then append -Dnvd.api.datafeed.url=$(nvdDatafeedUrl) to the
-      # 'Updating OWASP V15 DB' options below. Validate here on sbox first.
-      nvdDatafeedUrl: ""
+      # DTSPO-32997 Option B: read the NVD yearly feeds from the blob mirror
+      # (azure-pipelines-nvd-mirror.yml) instead of paging the live NVD API. {0}
+      # is substituted by DependencyCheck with the year; the read SAS is appended
+      # at runtime from the Key Vault secret 'nvd-datafeed-sas'. The mirror runs
+      # in prod but syncs the SAS into cftsbox-intsvc each run. Validate here on
+      # sbox first before relying on it in prod.
+      nvdDatafeedUrl: "https://owaspnvdmirrorcftptl.blob.core.windows.net/nvd/nvdcve-{0}.json.gz"
     timeoutInMinutes: 600
     steps:
       - task: AzureKeyVault@2
@@ -28,7 +29,7 @@ jobs:
         inputs:
           azureSubscription: ${{ variables.serviceConnection }}
           keyVaultName: ${{ variables.keyvaultName }}
-          secretsFilter: "OWASPPostgresDb-v15-Password,OWASPPostgresDb-v15-Account,nvd-api-key"
+          secretsFilter: "OWASPPostgresDb-v15-Password,OWASPPostgresDb-v15-Account,nvd-api-key,nvd-datafeed-sas"
           RunAsPreJob: true
 
       - task: Gradle@2
@@ -43,6 +44,6 @@ jobs:
         displayName: "Updating OWASP V15 DB"
         inputs:
           gradleWrapperFile: "gradlew"
-          options: "--build-file build-v10.gradle -DfailOnError='true' -Dorg.gradle.debug='true' --info -Ddata.driver_name=org.postgresql.Driver -Ddata.connection_string=jdbc:postgresql://owaspdependency-sandbox.postgres.database.azure.com/owaspdependencycheck -Ddata.user=$(OWASPPostgresDb-v15-Account) -Dnvd.api.key=$(nvd-api-key) -Dnvd.api.delay=10000 -Dnvd.api.max.retry.count=30 -Ddata.password=$(OWASPPostgresDb-v15-Password) -Ddatabase.batchinsert.enabled='true'"
+          options: "--build-file build-v10.gradle -DfailOnError='true' -Dorg.gradle.debug='true' --info -Ddata.driver_name=org.postgresql.Driver -Ddata.connection_string=jdbc:postgresql://owaspdependency-sandbox.postgres.database.azure.com/owaspdependencycheck -Ddata.user=$(OWASPPostgresDb-v15-Account) -Dnvd.api.key=$(nvd-api-key) -Dnvd.api.delay=10000 -Dnvd.api.max.retry.count=30 -Dnvd.api.datafeed.url=$(nvdDatafeedUrl)?$(nvd-datafeed-sas) -Ddata.password=$(OWASPPostgresDb-v15-Password) -Ddatabase.batchinsert.enabled='true'"
           tasks: "dependencyCheckUpdate"
           gradleOptions: -Xmx3g -XX:+HeapDumpOnOutOfMemoryError
