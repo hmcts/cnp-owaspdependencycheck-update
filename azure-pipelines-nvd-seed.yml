@@ -1,0 +1,133 @@
+# =============================================================================
+# DTSPO-32997 — One-off NVD seed (pragmatic interim, no new infra)
+# =============================================================================
+#
+# Purpose
+#   Get the shared OWASP DB current WITHOUT paging the flaky live NVD API.
+#   1. Build a local NVD cache on the agent with open-vulnerability-cli (vulnz).
+#      This is resumable and survives NVD HTTP/2 instability — re-run the job if
+#      the cache build is interrupted; completed year files are kept.
+#   2. Load that cache into Postgres in one fast pass via DependencyCheck's
+#      datafeed support (file: URL), which the engine reads locally instead of
+#      hitting the NVD API.
+#
+#   Once the DB is fresh, the normal scheduled pipeline goes back to small,
+#   fast incremental updates.
+#
+# This is a MANUAL pipeline (no schedule). Run it on-demand, sandbox first.
+#
+# Notes
+#   - vulnz 8.0.0+ requires Java 17. The job selects JAVA_HOME_17_X64 if present;
+#     otherwise install Java 17 on the agent or use the Docker alternative below.
+#   - DependencyCheck supports file/http/https datafeed URLs (Downloader.java).
+# =============================================================================
+
+trigger: none
+pr: none
+
+schedules:
+- cron: '0 22 * * *'
+  displayName: Nightly seed attempt at 22:00 UTC (23:00 BST)
+  branches:
+    include:
+    - platops/dstpo-32997owasp-nvd-download
+  always: 'true'
+
+parameters:
+  - name: environment
+    displayName: Target environment
+    type: string
+    default: sandbox
+    values:
+      - sandbox
+      - prod
+  - name: vulnzVersion
+    displayName: open-vulnerability-cli (vulnz) version
+    type: string
+    default: "9.0.4"
+
+variables:
+  ${{ if eq(parameters.environment, 'prod') }}:
+    serviceConnection: azurerm-prod
+    keyvaultName: cftptl-intsvc
+    dbHost: owaspdependency-prod.postgres.database.azure.com
+  ${{ if eq(parameters.environment, 'sandbox') }}:
+    serviceConnection: azurerm-sandbox
+    keyvaultName: cftsbox-intsvc
+    dbHost: owaspdependency-sandbox.postgres.database.azure.com
+
+jobs:
+  - job: nvd_seed
+    displayName: Seed OWASP DB from a local NVD cache (${{ parameters.environment }})
+    ${{ if eq(parameters.environment, 'prod') }}:
+      pool:
+        name: "hmcts-cftptl-agent-pool"
+    ${{ if eq(parameters.environment, 'sandbox') }}:
+      pool:
+        name: "hmcts-sandbox-agent-pool"
+    timeoutInMinutes: 180
+    steps:
+      - task: AzureKeyVault@2
+        displayName: "Get secrets from Keyvault"
+        inputs:
+          azureSubscription: ${{ variables.serviceConnection }}
+          keyVaultName: ${{ variables.keyvaultName }}
+          secretsFilter: "OWASPPostgresDb-v15-Password,OWASPPostgresDb-v15-Account,nvd-api-key"
+          RunAsPreJob: true
+
+      - task: Bash@3
+        displayName: "Download open-vulnerability-cli (vulnz)"
+        inputs:
+          targetType: inline
+          script: |
+            set -euo pipefail
+            JAR="vulnz-${VULNZ_VERSION}.jar"
+            URL="https://github.com/jeremylong/open-vulnerability-cli/releases/download/v${VULNZ_VERSION}/${JAR}"
+            echo "Downloading ${URL}"
+            curl -sSfL "${URL}" -o "${JAR}"
+        env:
+          VULNZ_VERSION: ${{ parameters.vulnzVersion }}
+
+      - task: Bash@3
+        displayName: "Build NVD cache (resumable)"
+        inputs:
+          targetType: inline
+          script: |
+            set -euo pipefail
+            # vulnz 8.0.0+ needs Java 17; prefer the agent's JDK 17 if available.
+            if [ -n "${JAVA_HOME_17_X64:-}" ]; then
+              export JAVA_HOME="${JAVA_HOME_17_X64}"
+              export PATH="${JAVA_HOME}/bin:${PATH}"
+            fi
+            java -version
+            mkdir -p cache
+            # vulnz reads the NVD API key from the NVD_API_KEY env var (set below).
+            # NOTE: these K8s pod agents have no Docker socket, so the maintainer's
+            # mirror container is not an option here; we invoke the jar directly.
+            java -Xmx2g -XX:+UseStringDeduplication \
+              -jar "vulnz-${VULNZ_VERSION}.jar" cve --cache --directory ./cache \
+              --recordsPerPage=500 --delay=1000
+            echo "----- cache contents -----"
+            ls -lh cache
+        env:
+          VULNZ_VERSION: ${{ parameters.vulnzVersion }}
+          NVD_API_KEY: $(nvd-api-key)
+
+      - task: Gradle@2
+        displayName: "Running OWASP V15 DB migrations"
+        inputs:
+          gradleWrapperFile: "gradlew"
+          options: "--build-file build-v10.gradle -DfailBuild='true' -Dflyway.url=jdbc:postgresql://$(dbHost)/owaspdependencycheck -Dflyway.user=$(OWASPPostgresDb-v15-Account) -Dflyway.password=$(OWASPPostgresDb-v15-Password) -Dflyway.locations=filesystem:db-migrations/v10"
+          tasks: "flywayMigrate"
+          gradleOptions: -Xmx2g -XX:+HeapDumpOnOutOfMemoryError
+
+      - task: Gradle@2
+        displayName: "Load NVD cache into OWASP V15 DB (datafeed)"
+        inputs:
+          gradleWrapperFile: "gradlew"
+          # Reads the local cache via the file: datafeed URL instead of paging the
+          # live NVD API. {0} is substituted with the year; cache.properties must
+          # sit alongside the gz files (vulnz writes it into ./cache).
+          options: "--build-file build-v10.gradle -DfailOnError='true' -Ddata.driver_name=org.postgresql.Driver -Ddata.connection_string=jdbc:postgresql://$(dbHost)/owaspdependencycheck -Ddata.user=$(OWASPPostgresDb-v15-Account) -Ddata.password=$(OWASPPostgresDb-v15-Password) -Dnvd.api.datafeed.url=file:$(System.DefaultWorkingDirectory)/cache/nvdcve-{0}.json.gz -Ddatabase.batchinsert.enabled='true'"
+          tasks: "dependencyCheckUpdate"
+          gradleOptions: -Xmx3g -XX:+HeapDumpOnOutOfMemoryError

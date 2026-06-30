@@ -1,0 +1,225 @@
+# =============================================================================
+# DTSPO-32997 — NVD datafeed mirror (Option B)
+# =============================================================================
+#
+# Purpose
+#   Build a local mirror of the NVD CVE data with the open-vulnerability-cli
+#   (https://github.com/jeremylong/open-vulnerability-cli) and publish the
+#   gzipped yearly feed files to Azure Blob Storage. DependencyCheck consumers
+#   (this repo's DB-update pipelines and the downstream service builds) then read
+#   the feed via -Dnvd.api.datafeed.url instead of paging the flaky NVD live API.
+#
+# Why
+#   The live NVD API is unstable (HTTP/2 stream resets), which makes the paged
+#   update take many hours and frequently abort or kill the agent. The CLI
+#   mirror is resilient (resumable, retrying) and — critically — if a mirror run
+#   fails, the previously published copy stays in blob storage, so consumers are
+#   never blocked. Consuming the datafeed is a handful of gz downloads instead of
+#   ~170 paged API calls, so the DB update drops from hours to minutes.
+#
+# Prerequisites (provision BEFORE enabling the schedule)
+#   1. A storage account + blob container (e.g. <account>/nvd) reachable by the
+#      prod agent pool AND the downstream Jenkins builds.
+#   2. Read access for consumers via a rotated read SAS: this pipeline mints a
+#      fresh container SAS each run and stores it in Key Vault secret
+#      'nvd-datafeed-sas'. The container itself stays private (no public access).
+#   3. The pipeline's service-connection principal (azurerm-prod) needs, on the
+#      storage account: "Storage Blob Data Contributor" (upload/download) and the
+#      ability to list account keys (e.g. Contributor or Storage Account Key
+#      Operator), plus "set" on Key Vault secrets in cftptl-intsvc (SAS rotation).
+#   4. Key Vault secret 'nvd-api-key' (already present in cftptl-intsvc).
+#   5. Agent must have Java 17+ available (vulnz 8.0.0+ requires it). If the pool
+#      only has Java 11, either add a JavaToolInstaller step or use the Docker
+#      alternative noted in the "Build NVD datafeed cache" step below.
+#
+# Consumer wiring (see azure-pipelines.yml / azure-pipelines-sbox.yml)
+#   -Dnvd.api.datafeed.url=https://owaspnvdmirrorcftptl.blob.core.windows.net/nvd/nvdcve-{0}.json.gz?<SAS>
+#   ({0} is substituted with the year; cache.properties must sit alongside.)
+#   <SAS> comes from Key Vault secret 'nvd-datafeed-sas' (fetched at build time).
+# =============================================================================
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "0 */6 * * *"
+    displayName: Mirror NVD datafeed every 6 hours
+    branches:
+      include:
+        - master
+    always: "true"
+
+parameters:
+  # Routine scheduled runs are incremental on the prod pool. Set this true for a
+  # manual run to force a clean full rebuild from NVD (~7h) on the 9h sandbox
+  # pool — e.g. if the blob mirror is ever lost/corrupted. The mirror is
+  # decoupled from consumers, so a long full run blocks nobody.
+  - name: fullRebuild
+    displayName: "Force a full rebuild from NVD (9h sandbox pool; skips incremental seed)"
+    type: boolean
+    default: false
+
+variables:
+  serviceConnection: azurerm-prod
+  keyvaultName: cftptl-intsvc
+  # The sbox DB-update consumer reads its SAS from a different vault, so the
+  # mirror syncs the same token there each run (the blob itself is in prod).
+  sboxServiceConnection: azurerm-sandbox
+  sboxKeyvaultName: cftsbox-intsvc
+  # DTSPO-32997: dedicated OWASP NVD mirror storage (core-infra-intsvc-rg).
+  storageAccount: "owaspnvdmirrorcftptl"
+  storageContainer: "nvd"
+  # Read-SAS lifetime; regenerated every run so consumers never hit an expiry.
+  sasValidDays: "90"
+  # Pin to a verified release of open-vulnerability-cli (vulnz).
+  vulnzVersion: "9.0.4"
+
+jobs:
+  - job: nvd_mirror
+    displayName: Mirror NVD datafeed to Blob Storage
+    # Routine 6-hourly runs use the prod pool (3h cap) and update incrementally.
+    # A forced full rebuild needs the 9h sandbox pool to fit the ~7h cold pull.
+    ${{ if eq(parameters.fullRebuild, true) }}:
+      pool:
+        name: "hmcts-sandbox-agent-pool"
+      timeoutInMinutes: 540
+    ${{ else }}:
+      pool:
+        name: "hmcts-cftptl-agent-pool"
+      timeoutInMinutes: 120
+    steps:
+      - task: AzureKeyVault@2
+        displayName: "Get secrets from Keyvault"
+        inputs:
+          azureSubscription: ${{ variables.serviceConnection }}
+          keyVaultName: ${{ variables.keyvaultName }}
+          secretsFilter: "nvd-api-key"
+          RunAsPreJob: true
+
+      - task: Bash@3
+        displayName: "Download open-vulnerability-cli (vulnz)"
+        inputs:
+          targetType: inline
+          script: |
+            set -euo pipefail
+            JAR="vulnz-${VULNZ_VERSION}.jar"
+            URL="https://github.com/jeremylong/open-vulnerability-cli/releases/download/v${VULNZ_VERSION}/${JAR}"
+            echo "Downloading ${URL}"
+            curl -sSfL "${URL}" -o "${JAR}"
+            chmod +x "${JAR}"
+        env:
+          VULNZ_VERSION: $(vulnzVersion)
+
+      # Incremental runs seed ./cache from the published mirror first so vulnz
+      # only fetches the delta. A full rebuild skips this so vulnz pulls all years.
+      - ${{ if eq(parameters.fullRebuild, false) }}:
+        - task: AzureCLI@2
+          displayName: "Seed local cache from existing mirror (incremental)"
+          inputs:
+            azureSubscription: ${{ variables.serviceConnection }}
+            scriptType: bash
+            scriptLocation: inlineScript
+            inlineScript: |
+              set -euo pipefail
+              # Pull the currently published cache so vulnz only fetches the delta
+              # (the 'modified' feed + recently changed years) instead of rebuilding
+              # all ~25 years from scratch — a full pull exceeds the agent time cap.
+              # On the very first run the container is empty and this is a no-op.
+              mkdir -p cache
+              az storage blob download-batch \
+                --account-name "$(storageAccount)" \
+                --source "$(storageContainer)" \
+                --destination cache \
+                --auth-mode login
+              echo "----- seeded cache -----"
+              ls -lh cache || true
+
+      - task: Bash@3
+        displayName: "Build/refresh NVD datafeed cache (vulnz)"
+        inputs:
+          targetType: inline
+          script: |
+            set -euo pipefail
+            # vulnz 8.0.0+ requires Java 17 — the agent ships it as JAVA_HOME_17_X64.
+            export JAVA_HOME="${JAVA_HOME_17_X64:-$JAVA_HOME}"
+            export PATH="${JAVA_HOME}/bin:${PATH}"
+            java -version
+            mkdir -p cache
+            # Run against the pre-seeded ./cache so vulnz updates incrementally.
+            # Produces/refreshes cache.properties, nvdcve-modified.json.gz and
+            # nvdcve-<year>.json.gz (+ .meta files) under ./cache
+            java -Xmx2g -XX:+UseStringDeduplication \
+              -jar "vulnz-${VULNZ_VERSION}.jar" cve --cache --directory ./cache \
+              --recordsPerPage=500 --delay=1000
+            echo "----- cache contents -----"
+            ls -lh cache
+        env:
+          VULNZ_VERSION: $(vulnzVersion)
+          NVD_API_KEY: $(nvd-api-key)
+
+      - task: AzureCLI@2
+        displayName: "Publish datafeed to Blob Storage"
+        inputs:
+          azureSubscription: ${{ variables.serviceConnection }}
+          scriptType: bash
+          scriptLocation: inlineScript
+          inlineScript: |
+            set -euo pipefail
+            # Upload the whole cache (gz feeds, .meta files and cache.properties).
+            # Do NOT set content-encoding: gzip — DependencyCheck expects the raw
+            # .gz bytes and decompresses them itself.
+            az storage blob upload-batch \
+              --account-name "$(storageAccount)" \
+              --destination "$(storageContainer)" \
+              --source cache \
+              --overwrite true \
+              --auth-mode login
+
+      - task: AzureCLI@2
+        name: rotateSas
+        displayName: "Rotate read SAS into Key Vault for consumers"
+        inputs:
+          azureSubscription: ${{ variables.serviceConnection }}
+          scriptType: bash
+          scriptLocation: inlineScript
+          inlineScript: |
+            set -euo pipefail
+            # Mint a fresh container read SAS every run and store it in Key Vault.
+            # Consumers read 'nvd-datafeed-sas' at build time, so the SAS is always
+            # renewed long before it expires — no manual rotation, no silent 403s.
+            KEY=$(az storage account keys list \
+              --account-name "$(storageAccount)" \
+              --query '[0].value' -o tsv)
+            EXPIRY=$(date -u -d "+$(sasValidDays) days" '+%Y-%m-%dT%H:%MZ')
+            SAS=$(az storage container generate-sas \
+              --account-name "$(storageAccount)" \
+              --account-key "$KEY" \
+              --name "$(storageContainer)" \
+              --permissions rl \
+              --expiry "$EXPIRY" \
+              --https-only -o tsv)
+            az keyvault secret set \
+              --vault-name "$(keyvaultName)" \
+              --name nvd-datafeed-sas \
+              --value "$SAS" >/dev/null
+            # Hand the token to the sandbox-vault sync step (masked in logs).
+            echo "##vso[task.setvariable variable=sasToken;issecret=true;isOutput=true]$SAS"
+            echo "Rotated nvd-datafeed-sas in $(keyvaultName) (expires ${EXPIRY})"
+
+      - task: AzureCLI@2
+        displayName: "Sync read SAS into sandbox Key Vault"
+        inputs:
+          azureSubscription: ${{ variables.sboxServiceConnection }}
+          scriptType: bash
+          scriptLocation: inlineScript
+          inlineScript: |
+            set -euo pipefail
+            # The sbox DB-update pipeline reads 'nvd-datafeed-sas' from
+            # cftsbox-intsvc; keep it in lock-step with the prod vault.
+            az keyvault secret set \
+              --vault-name "$(sboxKeyvaultName)" \
+              --name nvd-datafeed-sas \
+              --value "$SAS_TOKEN" >/dev/null
+            echo "Synced nvd-datafeed-sas to $(sboxKeyvaultName)"
+        env:
+          SAS_TOKEN: $(rotateSas.sasToken)
