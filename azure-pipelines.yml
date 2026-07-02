@@ -1,12 +1,15 @@
 trigger: none
 pr: none
 schedules:
-- cron: '0 */3 * * *'
-  displayName: Run update every 3 hours  
+- cron: '0 2 * * *'
+  displayName: Run update daily at 02:00 UTC (off-peak, after sbox canary at 01:00 UTC)
   branches:
     include:
     - master
   always: 'true'
+  # DTSPO-32997: Reduced from 0 */3 * * * (8 runs/day) to daily off-peak.
+  # NVD mirror feeds update every 3h; daily refresh via datafeed mode is sufficient.
+  # Off-peak timing (02:00 UTC) avoids shared pool contention with other jobs.
 jobs:
 
   - job: owasp_update_flexible
