@@ -69,6 +69,11 @@ variables:
   # DTSPO-32997: dedicated OWASP NVD mirror storage (core-infra-intsvc-rg).
   storageAccount: "owaspnvdmirrorcftptl"
   storageContainer: "nvd"
+  # The azurerm-prod service connection principal has access to multiple
+  # subscriptions and defaults to DCD-CNP-Prod, but the mirror storage account
+  # lives in DTS-CFTPTL-INTSVC. Management-plane calls (keys list, --auth-mode
+  # login blob ops) must target this subscription explicitly or they 404.
+  storageSubscription: "1baf5470-1c3e-40d3-a6f7-74bfbce4b348"
   # Read-SAS lifetime; regenerated every run so consumers never hit an expiry.
   sasValidDays: "90"
   # Pin to a verified release of open-vulnerability-cli (vulnz).
@@ -121,6 +126,9 @@ jobs:
             scriptLocation: inlineScript
             inlineScript: |
               set -euo pipefail
+              # The mirror storage account is in DTS-CFTPTL-INTSVC, not the login
+              # default (DCD-CNP-Prod) — select it before any storage call.
+              az account set --subscription "$(storageSubscription)"
               # Pull the currently published cache so vulnz only fetches the delta
               # (the 'modified' feed + recently changed years) instead of rebuilding
               # all ~25 years from scratch — a full pull exceeds the agent time cap.
@@ -165,6 +173,8 @@ jobs:
           scriptLocation: inlineScript
           inlineScript: |
             set -euo pipefail
+            # Target the mirror storage account's subscription (DTS-CFTPTL-INTSVC).
+            az account set --subscription "$(storageSubscription)"
             # Upload the whole cache (gz feeds, .meta files and cache.properties).
             # Do NOT set content-encoding: gzip — DependencyCheck expects the raw
             # .gz bytes and decompresses them itself.
@@ -187,6 +197,9 @@ jobs:
             # Mint a fresh container read SAS every run and store it in Key Vault.
             # Consumers read 'nvd-datafeed-sas' at build time, so the SAS is always
             # renewed long before it expires — no manual rotation, no silent 403s.
+            # keys list is a management-plane call: target the storage account's
+            # subscription (DTS-CFTPTL-INTSVC) or it fails with 'account not found'.
+            az account set --subscription "$(storageSubscription)"
             KEY=$(az storage account keys list \
               --account-name "$(storageAccount)" \
               --query '[0].value' -o tsv)
