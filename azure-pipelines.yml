@@ -8,7 +8,7 @@ schedules:
     - master
   always: 'true'
   # DTSPO-32997: Reduced from 0 */3 * * * (8 runs/day) to daily off-peak.
-  # NVD mirror feeds update every 3h; daily refresh via datafeed mode is sufficient.
+  # NVD mirror feeds update every 6h; daily refresh via datafeed mode is sufficient.
   # Off-peak timing (02:00 UTC) avoids shared pool contention with other jobs.
 jobs:
 

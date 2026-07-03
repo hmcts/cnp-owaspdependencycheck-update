@@ -82,7 +82,7 @@ variables:
 jobs:
   - job: nvd_mirror
     displayName: Mirror NVD datafeed to Blob Storage
-    # Routine 6-hourly runs use the prod pool (3h cap) and update incrementally.
+    # Routine 6-hourly runs use the prod pool (2h job timeout) and update incrementally.
     # A forced full rebuild needs the 9h sandbox pool to fit the ~7h cold pull.
     ${{ if eq(parameters.fullRebuild, true) }}:
       pool:

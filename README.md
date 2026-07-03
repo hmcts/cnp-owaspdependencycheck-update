@@ -6,8 +6,8 @@ Pipeline for automating owasp dependency check updates to Azure DB.
 
 | File | Purpose |
 | ---- | ------- |
-| `azure-pipelines.yml` | Production: Flyway-migrates the shared cached OWASP DB then refreshes the NVD data from the blob mirror (every 3h). |
-| `azure-pipelines-sbox.yml` | Sandbox equivalent of the production pipeline. |
+| `azure-pipelines.yml` | Production: Flyway-migrates the shared cached OWASP DB then refreshes the NVD data from the blob mirror (daily at 02:00 UTC). |
+| `azure-pipelines-sbox.yml` | Sandbox equivalent of the production pipeline; runs daily at 01:00 UTC as a canary 1h ahead of prod. |
 | `azure-pipelines-nvd-mirror.yml` | DTSPO-32997 Option B: builds the NVD datafeed and publishes it to Blob Storage; the producer that prod/sbox read (see below). |
 | `azure-pipelines-nvd-seed.yml` | DTSPO-32997 interim: one-off manual job to seed the DB from a local NVD cache (see below). |
 
@@ -33,6 +33,12 @@ Run it **manually**, `environment: sandbox` first to validate, then `prod`.
 Requires Java 17 on the agent (vulnz 8.0.0+); the job uses `JAVA_HOME_17_X64` if
 present, otherwise see the Docker alternative in the pipeline file. Once seeded,
 the normal scheduled pipeline resumes small, fast incremental updates.
+
+> **Note:** this seed pipeline is a **manual, on-demand tool only** — it must not
+> carry a schedule. A temporary nightly cron was added to it during the initial
+> bootstrap; that has since been removed now that the NVD mirror (below) is the
+> ongoing producer. If you re-add a schedule for a one-off catch-up, remove it
+> again afterwards.
 
 ## NVD datafeed mirror (DTSPO-32997, Option B)
 
@@ -71,7 +77,7 @@ query string, so no cross-subscription RBAC is needed to consume it).
 ### How it runs
 
 - **Schedule**: the mirror runs every 6h on the prod pool (`hmcts-cftptl-agent-pool`,
-  3h cap), seeding from the existing blob copy and updating incrementally.
+  2h job timeout), seeding from the existing blob copy and updating incrementally.
 - **Full rebuild**: run the mirror manually with the `fullRebuild` parameter set
   to `true` to force a clean ~7h pull from NVD on the 9h sandbox pool
   (`hmcts-sandbox-agent-pool`) — e.g. if the blob mirror is ever lost or
@@ -79,7 +85,7 @@ query string, so no cross-subscription RBAC is needed to consume it).
   nobody.
 - **Cold-start note**: the initial blob contents were built off-agent (a local
   ~7h authenticated `vulnz` run) and uploaded once, because a from-scratch pull
-  exceeds the prod pool's 3h cap. Routine runs only need the incremental path.
+  exceeds the prod pool's 2h job timeout. Routine runs only need the incremental path.
 
 ### Consumer wiring (already in place)
 
@@ -105,10 +111,16 @@ yearly data now comes from the local copy of the mirror.
 
 ### RBAC the mirror needs
 
+- The mirror's storage account lives in the **`DTS-CFTPTL-INTSVC`** subscription,
+  but the `azurerm-prod` service connection principal defaults to `DCD-CNP-Prod`.
+  Every management-plane storage step therefore runs
+  `az account set --subscription $(storageSubscription)` first, or the calls fail
+  with `Storage account 'owaspnvdmirrorcftptl' not found`. (Consumer downloads use
+  a SAS token, a data-plane credential, so they are unaffected by the default sub.)
 - `azurerm-prod` SP on `owaspnvdmirrorcftptl`: `Storage Blob Data Contributor`
   (upload/download with `--auth-mode login`) **and** the ability to list account
-  keys (`Contributor` or *Storage Account Key Operator Service Role*), plus `set`
-  on secrets in `cftptl-intsvc`.
+  keys (`Storage Account Contributor` or *Storage Account Key Operator Service Role*),
+  plus `set` on secrets in `cftptl-intsvc`.
 - `azurerm-sandbox` SP: `set` on secrets in `cftsbox-intsvc` (already granted via
   the sbox pipelines).
 
