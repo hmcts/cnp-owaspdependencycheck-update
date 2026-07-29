@@ -1,14 +1,16 @@
 trigger: none
 pr: none
 schedules:
-  - cron: "0 1 * * *"
-    displayName: Run update daily at 01:00 UTC (canary 1h before prod 02:00 UTC)
+  - cron: "0 7 * * *"
+    displayName: Run update daily at 07:00 UTC (after sandbox AKS auto-start at 06:30 UTC)
     branches:
       include:
         - master
     always: "true"
     # DTSPO-32997: Reduced from 0 8-17/3 * * * (4 business-hour runs/day) to daily canary.
-    # Runs 1 hour before prod as early warning. If sbox fails, prod (02:00) can be manually held.
+    # DTSPO-32997: Moved from 01:00 UTC - sandbox AKS agent pool is auto-shutdown overnight
+    # (stopped ~20:00/23:00 UTC, only auto-started weekdays 06:30 UTC), so 01:00 UTC runs
+    # had no agent available on weeknights. 07:00 UTC gives a 30min buffer after auto-start.
 jobs:
   - job: owasp_update_flexible_sbox
     displayName: Update OWASP dependency check DB on Postgres Flexible Server - Sandbox
