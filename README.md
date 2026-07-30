@@ -6,8 +6,8 @@ Pipeline for automating owasp dependency check updates to Azure DB.
 
 | File | Purpose |
 | ---- | ------- |
-| `azure-pipelines.yml` | Production: Flyway-migrates the shared cached OWASP DB then refreshes the NVD data from the blob mirror (daily at 02:00 UTC). |
-| `azure-pipelines-sbox.yml` | Sandbox equivalent of the production pipeline; runs daily at 01:00 UTC as a canary 1h ahead of prod. |
+| `azure-pipelines.yml` | Production: Flyway-migrates the shared cached OWASP DB then refreshes the NVD data from the blob mirror (daily at 08:00 UTC). |
+| `azure-pipelines-sbox.yml` | Sandbox equivalent of the production pipeline; runs daily at 08:00 UTC, same time as prod (previously staggered earlier, but moved out to give the sandbox AKS pool a longer post-auto-start buffer). |
 | `azure-pipelines-nvd-mirror.yml` | DTSPO-32997 Option B: builds the NVD datafeed and publishes it to Blob Storage; the producer that prod/sbox read (see below). |
 | `azure-pipelines-nvd-seed.yml` | DTSPO-32997 interim: one-off manual job to seed the DB from a local NVD cache (see below). |
 

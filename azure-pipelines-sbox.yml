@@ -1,8 +1,8 @@
 trigger: none
 pr: none
 schedules:
-  - cron: "0 7 * * *"
-    displayName: Run update daily at 07:00 UTC (after sandbox AKS auto-start at 06:30 UTC)
+  - cron: "0 8 * * *"
+    displayName: Run update daily at 08:00 UTC (after sandbox AKS auto-start at 06:30 UTC)
     branches:
       include:
         - master
@@ -10,7 +10,9 @@ schedules:
     # DTSPO-32997: Reduced from 0 8-17/3 * * * (4 business-hour runs/day) to daily canary.
     # DTSPO-32997: Moved from 01:00 UTC - sandbox AKS agent pool is auto-shutdown overnight
     # (stopped ~20:00/23:00 UTC, only auto-started weekdays 06:30 UTC), so 01:00 UTC runs
-    # had no agent available on weeknights. 07:00 UTC gives a 30min buffer after auto-start.
+    # had no agent available on weeknights. 07:00 UTC gave only a 30min buffer after auto-start
+    # and still hit agent-abandoned failures (nodes/pods still settling post cold-start), so
+    # moved again to 08:00 UTC for a 90min buffer.
 jobs:
   - job: owasp_update_flexible_sbox
     displayName: Update OWASP dependency check DB on Postgres Flexible Server - Sandbox

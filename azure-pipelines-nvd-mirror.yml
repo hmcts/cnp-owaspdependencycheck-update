@@ -42,8 +42,18 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 */6 * * *"
-    displayName: Mirror NVD datafeed every 6 hours
+  # Twice daily is enough: the run itself takes minutes, and CVE data doesn't
+  # need to be fresher than that for a once-a-day consumer schedule. Both times
+  # sit safely inside the prod agent pool's weekday up-window (auto-start
+  # 06:30 BST, auto-shutdown 20:00 BST) with buffer either side.
+  - cron: "30 7 * * *"
+    displayName: Mirror NVD datafeed - morning (07:30 UTC, ahead of 08:00 UTC consumers)
+    branches:
+      include:
+        - master
+    always: "true"
+  - cron: "0 17 * * *"
+    displayName: Mirror NVD datafeed - evening (17:00 UTC)
     branches:
       include:
         - master
