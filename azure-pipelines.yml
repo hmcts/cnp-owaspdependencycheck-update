@@ -1,17 +1,17 @@
 trigger: none
 pr: none
 schedules:
-- cron: '0 7 * * *'
-  displayName: Run update daily at 07:00 UTC (same time as sbox canary)
+- cron: '0 8 * * *'
+  displayName: Run update daily at 08:00 UTC (same time as sbox canary)
   branches:
     include:
     - master
   always: 'true'
   # DTSPO-32997: Reduced from 0 */3 * * * (8 runs/day) to daily off-peak.
-  # NVD mirror feeds update every 6h; daily refresh via datafeed mode is sufficient.
-  # DTSPO-32997: Moved from 02:00 UTC to 07:00 UTC, matching sbox, to run after the
-  # sandbox AKS agent pool's weekday auto-start (06:30 UTC) - prod's agent pool isn't
-  # auto-shutdown tagged, but aligning both pipelines simplifies the schedule.
+  # NVD mirror feeds refresh twice daily (07:30/17:00 UTC); daily consumer refresh is sufficient.
+  # DTSPO-32997: Moved from 02:00 UTC to 07:00 UTC, then to 08:00 UTC, matching sbox, to run
+  # after the prod agent pool's weekday auto-start (06:30 UTC) - cft-ptl-00-aks is also
+  # auto-shutdown tagged (stopped ~20:00/23:00 BST, started weekdays 06:30 BST), same as sbox.
 jobs:
 
   - job: owasp_update_flexible
