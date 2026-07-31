@@ -130,6 +130,9 @@ jobs:
       - ${{ if eq(parameters.fullRebuild, false) }}:
         - task: AzureCLI@2
           displayName: "Seed local cache from existing mirror (incremental)"
+          # Transient AAD/network resets (e.g. connection reset acquiring a
+          # token) shouldn't fail the whole run - retry a couple of times.
+          retryCountOnTaskFailure: 2
           inputs:
             azureSubscription: ${{ variables.serviceConnection }}
             scriptType: bash
@@ -177,6 +180,7 @@ jobs:
 
       - task: AzureCLI@2
         displayName: "Publish datafeed to Blob Storage"
+        retryCountOnTaskFailure: 2
         inputs:
           azureSubscription: ${{ variables.serviceConnection }}
           scriptType: bash
@@ -198,6 +202,7 @@ jobs:
       - task: AzureCLI@2
         name: rotateSas
         displayName: "Rotate read SAS into Key Vault for consumers"
+        retryCountOnTaskFailure: 2
         inputs:
           azureSubscription: ${{ variables.serviceConnection }}
           scriptType: bash
@@ -231,6 +236,7 @@ jobs:
 
       - task: AzureCLI@2
         displayName: "Sync read SAS into sandbox Key Vault"
+        retryCountOnTaskFailure: 2
         inputs:
           azureSubscription: ${{ variables.sboxServiceConnection }}
           scriptType: bash
