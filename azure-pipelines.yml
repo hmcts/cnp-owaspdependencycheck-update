@@ -21,6 +21,7 @@ jobs:
     variables:
       serviceConnection: azurerm-prod
       keyvaultName: cftptl-intsvc
+      OWASP_MAVEN_REPOSITORY_URL: https://artifactory.platform.hmcts.net/artifactory/maven-remotes
       # DTSPO-32997 Option B: the NVD feeds are mirrored to blob storage by
       # azure-pipelines-nvd-mirror.yml. We download them to ./cache with the read
       # SAS, then point DependencyCheck at the local files via a file: datafeed

@@ -1,6 +1,8 @@
 buildscript {
     repositories {
-        mavenCentral()
+        maven {
+            url = System.getenv('OWASP_MAVEN_REPOSITORY_URL') ?: 'https://artifactory.platform.hmcts.net/artifactory/maven-remotes'
+        }
     }
 
     dependencies {
@@ -16,5 +18,7 @@ group = 'uk.gov.hmcts'
 
 
 repositories {
-    mavenCentral()
+    maven {
+        url = System.getenv('OWASP_MAVEN_REPOSITORY_URL') ?: 'https://artifactory.platform.hmcts.net/artifactory/maven-remotes'
+    }
 }

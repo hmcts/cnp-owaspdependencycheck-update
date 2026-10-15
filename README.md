@@ -14,6 +14,35 @@ Pipeline for automating owasp dependency check updates to Azure DB.
 The active jobs use `build-v10.gradle` and `db-migrations/v10`. `build-v6.gradle`
 and `build-v9.gradle` are legacy and unused.
 
+## Gradle dependency downloads
+
+The production and sandbox jobs set `OWASP_MAVEN_REPOSITORY_URL` to their
+environment's internal Artifactory `maven-remotes` repository. Azure Pipelines
+exports this job variable to both Gradle tasks as an environment variable.
+`settings.gradle` uses it for plugin resolution, and `build-v10.gradle` uses it
+for the PostgreSQL driver, plugin dependencies and project dependencies.
+There is no direct Maven Central or Gradle Plugin Portal fallback.
+
+This avoids agents downloading dependencies directly from Maven Central, where
+HTTP 429 responses can fail the migration step before it connects to PostgreSQL.
+Artifactory still needs upstream access for artifacts that are not yet cached.
+Agents must be able to resolve and reach their Artifactory endpoint over HTTPS.
+Without the variable, local and one-off seed runs default to production
+Artifactory; set it explicitly to use sandbox Artifactory.
+
+Validate dependency resolution without accessing the database or updating feeds:
+
+```bash
+OWASP_MAVEN_REPOSITORY_URL=https://artifactory.sandbox.platform.hmcts.net/artifactory/maven-remotes \
+  ./gradlew --no-daemon --build-file build-v10.gradle help
+```
+
+Repeat with `https://artifactory.platform.hmcts.net/artifactory/maven-remotes`
+for production. Run the sandbox pipeline from the changed branch first, checking
+that migration, blob download and database update all succeed, then run production.
+The NVD blob mirror, database connection details and schedules are unchanged.
+The Gradle wrapper distribution is still downloaded from `services.gradle.org`.
+
 ## One-off seed (DTSPO-32997 interim, no new infra)
 
 When the shared DB has gone stale and the live-API update can't catch up (NVD
